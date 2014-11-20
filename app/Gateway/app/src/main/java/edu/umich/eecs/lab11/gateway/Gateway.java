@@ -5,6 +5,7 @@ import android.app.ActionBar;
 import android.app.Fragment;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.location.LocationManager;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
@@ -31,15 +32,36 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 
+
+
+
+
 public class Gateway extends Activity {
+
+    private enum AccessLevels {
+        ALL, NO_GPS, FINE_GPS,
+        MID_GPS, NO_TIME, NO_DATA,
+        ONLY_PROGRAM, NO_WIFI, NO_PROGRAM, MID_PROGRAM
+    }
+
+    private ArrayList<String> validPrograms = new ArrayList<String>();
+    private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>();
+
+
+    private Settings cur_settings = new Settings();
+
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
     private Handler mHandler;
     private boolean paused;
+    LocationManager locationManager;
     private static AsyncHttpClient client = new AsyncHttpClient();
+
+    private boolean waitingForOffload;
 
     private static final int REQUEST_ENABLE_BT = 1;
     // Stops scanning after 10 seconds.
@@ -48,6 +70,14 @@ public class Gateway extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        validPrograms.add("IPAY");
+        programCredentials.add(true);
+        validPrograms.add("YOUPAY");
+        programCredentials.add(false);
+
+        getSystemService(Context.LOCATION_SERVICE);
+
         setContentView(R.layout.activity_gateway);
         if (savedInstanceState == null) {
             getFragmentManager().beginTransaction()
@@ -75,6 +105,50 @@ public class Gateway extends Activity {
             finish();
             return;
         }
+    }
+
+    public ArrayList<Integer> getGPS() {
+        ArrayList<Integer> cur_loc = new ArrayList<Integer>();
+
+        return cur_loc;
+    }
+
+    public long getTime() {
+        return System.currentTimeMillis();
+    }
+
+    public boolean findValidProgram(String program) {
+        int find = validPrograms.lastIndexOf(program);
+        return checkProgramCredentials(find);
+    }
+
+    public boolean checkProgramCredentials(Integer index) {
+        return programCredentials.get(index);
+    }
+
+
+    public void buildFinalPacket() {
+        //if no offloading and have required network
+            //send packet
+        //if don't have required networking and offloading is done
+            // raise alarm
+            // if dtn enabled
+                //queue packet
+            // else
+                //drop packet
+        //if have required networking and offloading is done
+            // send packet
+    }
+
+    public void doFlags(String msg) {
+
+
+
+    }
+
+    public void doConfig() {
+        // READ ALL SLIDERS AND SET CONFIGS
+
     }
 
 
