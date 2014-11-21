@@ -254,18 +254,18 @@ public class Gateway extends Activity {
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
             new BluetoothAdapter.LeScanCallback() {
-
                 @Override
-                public void onLeScan(final BluetoothDevice device, final int rssi, byte[] scanRecord) {
+                public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            System.out.print(device);
                             JSONObject jsonParams = new JSONObject();
                             try {
+                                jsonParams.put("advertisement",getHexString(scanRecord));
                                 jsonParams.put("device", (device.getName()!=null) ? device.getName() : "Unnamed" );
                                 jsonParams.put("address", device.getAddress());
                                 jsonParams.put("rssi", rssi);
+                                System.out.println(getHexString(scanRecord));
                                 StringEntity entity = new StringEntity(jsonParams.toString());
                                 entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
                                 client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
@@ -286,4 +286,13 @@ public class Gateway extends Activity {
                 }
             };
 
+
+    public static String getHexString (byte[] buf)
+    {
+        StringBuffer sb = new StringBuffer();
+        for (byte b:buf) sb.append(String.format("%X", b));
+        return sb.toString();
+    }
 }
+
+

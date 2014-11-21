@@ -12,7 +12,8 @@
       socket = io.connect('inductor.eecs.umich.edu:8082/stream');
       socket.on('connect', function (data) { socket.emit('query', {'profile_id':'SgYPCHTR5a','time': 30*60*1000 } ); });
       socket.on('data', function (data) { 
-        s="NAME: " + data['device'] + ", ADDRESS:" + data['address'] + ", RSSI:" + data['rssi'];
+        s="NAME: " + data['device'] + ", ADDRESS:" + data['address'] + ", RSSI:" + data['rssi'] + ", ADV:" + data['advertisement'];
+        console.log(data['advertisement']);
         document.querySelector('div').innerHTML = s + '<br />' + document.querySelector('div').innerHTML;
       });
     }
