@@ -128,24 +128,92 @@ public class Gateway extends Activity {
     }
 
 
-    public void buildFinalPacket() {
-        //if no offloading and have required network
-            //send packet
-        //if don't have required networking and offloading is done
-            // raise alarm
-            // if dtn enabled
-                //queue packet
-            // else
-                //drop packet
-        //if have required networking and offloading is done
-            // send packet
-    }
-
-    public void doFlags(String msg) {
-
-
+    public void UUID_parse() {
 
     }
+
+    public void ADV_parse() {
+        
+    }
+
+    public void run() {
+
+        int tmp_switch = 0;
+        switch(tmp_switch) {
+            case 1:
+                break;
+            case 2:
+                check_program();
+                check_if_grant_able();
+                break;
+            case 3:
+                check_if_grant_able();
+                break;
+            default: break;
+        }
+        switch_gateway_mode();
+    }
+
+    public void check_if_grant_able() {
+
+    }
+
+    public void check_program() {
+
+    }
+
+    public void switch_gateway_mode() {
+        int tmp_switch = 0;
+        switch (tmp_switch) {
+            case 1:
+                break;
+            case 2:
+                break;
+            default: break;
+        }
+        schedule();
+        forward_data();
+
+    }
+
+    public void schedule() {
+
+    }
+
+    public void forward_data() {
+
+        check_ack();
+    }
+
+    public void check_ack() {
+        int tmp_switch = 0;
+        switch (tmp_switch) {
+            case 1:
+                check_ack_able();
+                schedule_ack();
+                break;
+            default: break;
+        }
+
+
+    }
+
+    public void check_ack_able() {
+
+    }
+
+    public void schedule_ack() {
+    }
+
+    public void on_ack_callback() {
+        send_ack();
+
+    }
+
+    public void send_ack() {
+
+    }
+
 
     public void doConfig() {
         // READ ALL SLIDERS AND SET CONFIGS
