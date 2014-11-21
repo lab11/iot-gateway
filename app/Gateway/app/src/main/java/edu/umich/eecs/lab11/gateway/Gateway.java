@@ -36,24 +36,12 @@ import org.json.JSONObject;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 
-
-
-
-
-
 public class Gateway extends Activity {
-
-    private enum AccessLevels {
-        ALL, NO_GPS, FINE_GPS,
-        MID_GPS, NO_TIME, NO_DATA,
-        ONLY_PROGRAM, NO_WIFI, NO_PROGRAM, MID_PROGRAM
-    }
 
     private ArrayList<String> validPrograms = new ArrayList<String>();
     private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>();
 
-
-    private Settings cur_settings = new Settings();
+    private Peripheral cur_peripheral = new Peripheral();
 
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
@@ -128,12 +116,17 @@ public class Gateway extends Activity {
     }
 
 
-    public void UUID_parse() {
 
+
+
+    public boolean UUID_parse(BluetoothDevice device) {
+
+
+        return false;
     }
 
-    public void ADV_parse() {
-        
+    public void ADV_parse(BluetoothDevice device) {
+
     }
 
     public void run() {
@@ -335,6 +328,12 @@ public class Gateway extends Activity {
                                 jsonParams.put("rssi", rssi);
                                 System.out.println(getHexString(scanRecord));
                                 StringEntity entity = new StringEntity(jsonParams.toString());
+                                if (UUID_parse(device)) {
+                                    ADV_parse(device);
+                                    run();
+                                }
+
+
                                 entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
                                 client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                                     @Override
