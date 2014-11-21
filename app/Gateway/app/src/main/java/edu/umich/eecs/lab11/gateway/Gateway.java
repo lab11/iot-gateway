@@ -180,16 +180,9 @@ public class Gateway extends Activity {
         public GatewayFragment() {
         }
 
-        private WebView myWebView;
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             View v = inflater.inflate(R.layout.fragment_gateway, container, false);
-            myWebView = (WebView) v.findViewById(R.id.webView);
-            WebSettings webSettings = myWebView.getSettings();
-            webSettings.setJavaScriptEnabled(true);
-            webSettings.setLoadWithOverviewMode(true);
-            webSettings.setUseWideViewPort(true);
-            myWebView.loadUrl("file:///android_asset/index.html");
             return v;
         }
     }
