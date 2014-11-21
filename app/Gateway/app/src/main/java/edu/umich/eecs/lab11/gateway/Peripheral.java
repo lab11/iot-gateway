@@ -7,9 +7,9 @@ import java.sql.Array;
  */
 public class Peripheral {
 
-        public Array UUID_FLAGS;
-        public Array SENSOR_FLAGS;
-        public Array ADV_FLAGS;
+        public int[] UUID_FLAGS;
+        public int[] SENSOR_FLAGS;
+        public int[] ADV_FLAGS;
 
         public enum Sensor_Fields {
             GPS_FINE, GPS_MID, GPS_FAR,
@@ -27,6 +27,10 @@ public class Peripheral {
             ip_address, data_blob
         }
 
-        public Peripheral() {}
+        public Peripheral() {
+            UUID_FLAGS = new int[7];
+            SENSOR_FLAGS = new int[8];
+            ADV_FLAGS = new int[2];
+        }
 
 }
