@@ -12,6 +12,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceActivity;
+import android.preference.PreferenceFragment;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -22,6 +24,8 @@ import android.os.Build;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.BaseAdapter;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import com.loopj.android.http.*;
 
@@ -214,38 +218,60 @@ public class Gateway extends Activity {
     }
 
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.gateway, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-        if (id == R.id.action_settings) {
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
+//    @Override
+//    public boolean onCreateOptionsMenu(Menu menu) {
+//        // Inflate the menu; this adds items to the action bar if it is present.
+//        getMenuInflater().inflate(R.menu.gateway, menu);
+//        return true;
+//    }
+//
+//    @Override
+//    public boolean onOptionsItemSelected(MenuItem item) {
+//        // Handle action bar item clicks here. The action bar will
+//        // automatically handle clicks on the Home/Up button, so long
+//        // as you specify a parent activity in AndroidManifest.xml.
+//        int id = item.getItemId();
+//        if (id == R.id.action_settings) {
+//            return true;
+//        }
+//        return super.onOptionsItemSelected(item);
+//    }
 
     /**
-     * A placeholder fragment containing a simple view.
+     * Settings Fragment
      */
-    public static class GatewayFragment extends Fragment {
+    public static class GatewayFragment extends PreferenceFragment implements SeekBar.OnSeekBarChangeListener {
 
-        public GatewayFragment() {
-        }
+        public GatewayFragment() { }
+
+        TextView rateValue, reliabilityValue;
+        SeekBar rateBar, reliabilityBar;
 
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             View v = inflater.inflate(R.layout.fragment_gateway, container, false);
+            rateBar          = (SeekBar)v.findViewById(R.id.rateBar);
+            reliabilityBar   = (SeekBar)v.findViewById(R.id.reliabilityBar);
+            rateValue        = (TextView)v.findViewById(R.id.rateValue);
+            reliabilityValue = (TextView)v.findViewById(R.id.reliabilityValue);
+            rateBar.setOnSeekBarChangeListener(this);
+            reliabilityBar.setOnSeekBarChangeListener(this);
             return v;
         }
+
+        @Override
+        public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+            switch (seekBar.getId()) {
+                case R.id.rateBar: rateValue.setText(""+i); break;
+                case R.id.reliabilityBar: reliabilityValue.setText(""+i); break;
+            }
+        }
+
+        @Override
+        public void onStartTrackingTouch(SeekBar seekBar) { }
+
+        @Override
+        public void onStopTrackingTouch(SeekBar seekBar) { }
     }
 
     @Override
@@ -333,17 +359,10 @@ public class Gateway extends Activity {
                                     run();
                                 }
 
-
                                 entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
                                 client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                                    @Override
-                                    public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
-
-                                    }
-                                    @Override
-                                    public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
-
-                                    }
+                                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                                 });
                             } catch (Exception e) {
                                 e.printStackTrace();

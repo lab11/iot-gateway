@@ -16,9 +16,9 @@
     <Space
         android:layout_width="20px"
         android:layout_height="40px"
-        android:layout_below="@+id/seekBar"
+        android:layout_below="@+id/reliabilityBar"
         android:layout_alignParentStart="true"
-        android:layout_alignEnd="@+id/seekBar"
+        android:layout_alignEnd="@+id/reliabilityBar"
         android:id="@+id/space7" />
 
     <TextView
@@ -30,22 +30,31 @@
         android:layout_alignParentStart="true"
         android:layout_alignEnd="@+id/switch1" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:text="7"
+        android:id="@+id/rateValue"
+        android:layout_gravity="right" />
+
     <SeekBar
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/seekBar2"
+        android:id="@+id/rateBar"
         android:layout_below="@+id/textView2"
         android:layout_alignParentStart="true"
         android:layout_alignParentEnd="true"
-        android:max="8"
-        android:indeterminate="false" />
+        android:max="7"
+        android:indeterminate="false"
+        android:progress="7" />
 
     <Space
         android:layout_width="20px"
         android:layout_height="40px"
-        android:layout_below="@+id/seekBar"
+        android:layout_below="@+id/reliabilityBar"
         android:layout_alignParentStart="true"
-        android:layout_alignEnd="@+id/seekBar"
+        android:layout_alignEnd="@+id/reliabilityBar"
         android:id="@+id/space6" />
 
     <TextView
@@ -57,22 +66,31 @@
         android:layout_alignParentStart="true"
         android:layout_alignEnd="@+id/switch1" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:text="7"
+        android:id="@+id/reliabilityValue"
+        android:layout_gravity="right" />
+
     <SeekBar
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/seekBar"
+        android:id="@+id/reliabilityBar"
         android:layout_below="@+id/textView2"
         android:layout_alignParentStart="true"
         android:layout_alignParentEnd="true"
-        android:max="8"
-        android:indeterminate="false" />
+        android:max="7"
+        android:indeterminate="false"
+        android:progress="7" />
 
     <Space
         android:layout_width="20px"
         android:layout_height="40px"
-        android:layout_below="@+id/seekBar"
+        android:layout_below="@+id/reliabilityBar"
         android:layout_alignParentStart="true"
-        android:layout_alignEnd="@+id/seekBar" />
+        android:layout_alignEnd="@+id/reliabilityBar" />
 
     <TextView
         android:layout_width="match_parent"
@@ -80,7 +98,7 @@
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:text="Phone Access Permissions"
         android:id="@+id/textView4"
-        android:layout_below="@+id/seekBar"
+        android:layout_below="@+id/reliabilityBar"
         android:layout_alignParentStart="true" />
 
     <Switch
@@ -90,7 +108,7 @@
         android:id="@+id/switch2"
         android:layout_below="@+id/textView4"
         android:layout_alignParentStart="true"
-        android:layout_alignEnd="@+id/seekBar"
+        android:layout_alignEnd="@+id/reliabilityBar"
         android:checked="true" />
 
     <Switch
@@ -98,7 +116,7 @@
         android:layout_height="wrap_content"
         android:text="GPS (Mid Resolution)"
         android:id="@+id/switch3"
-        android:checked="false"
+        android:checked="true"
         android:layout_below="@+id/switch2"
         android:layout_alignParentStart="true"
         android:layout_alignEnd="@+id/switch2" />
@@ -108,7 +126,7 @@
         android:layout_height="wrap_content"
         android:text="GPS (Far Resolution)"
         android:id="@+id/switch4"
-        android:checked="false"
+        android:checked="true"
         android:layout_below="@+id/switch3"
         android:layout_alignParentStart="true"
         android:layout_alignParentEnd="true" />
@@ -166,9 +184,9 @@
     <Space
         android:layout_width="20px"
         android:layout_height="40px"
-        android:layout_below="@+id/seekBar"
+        android:layout_below="@+id/reliabilityBar"
         android:layout_alignParentStart="true"
-        android:layout_alignEnd="@+id/seekBar"
+        android:layout_alignEnd="@+id/reliabilityBar"
         android:id="@+id/space5" />
 
     <TextView
@@ -203,9 +221,9 @@
     <Space
         android:layout_width="20px"
         android:layout_height="40px"
-        android:layout_below="@+id/seekBar"
+        android:layout_below="@+id/reliabilityBar"
         android:layout_alignParentStart="true"
-        android:layout_alignEnd="@+id/seekBar"
+        android:layout_alignEnd="@+id/reliabilityBar"
         android:id="@+id/space4" />
 
     <TextView
