@@ -40,7 +40,7 @@ import org.json.JSONObject;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 
-public class Gateway extends Activity {
+public class Gateway extends PreferenceActivity {
 
     private ArrayList<String> validPrograms = new ArrayList<String>();
     private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>();
@@ -71,12 +71,15 @@ public class Gateway extends Activity {
 
         getSystemService(Context.LOCATION_SERVICE);
 
-        setContentView(R.layout.activity_gateway);
-        if (savedInstanceState == null) {
-            getFragmentManager().beginTransaction()
-                    .add(R.id.container, new GatewayFragment())
-                    .commit();
-        }
+        getFragmentManager().beginTransaction().replace(android.R.id.content,
+                new GatewayFragment()).commit();
+
+//        setContentView(R.layout.activity_gateway);
+//        if (savedInstanceState == null) {
+//            getFragmentManager().beginTransaction()
+//                    .add(R.id.container, new GatewayFragment())
+//                    .commit();
+//        }
         mHandler = new Handler();
 
         // Use this check to determine whether BLE is supported on the device.  Then you can
@@ -242,29 +245,36 @@ public class Gateway extends Activity {
      */
     public static class GatewayFragment extends PreferenceFragment implements SeekBar.OnSeekBarChangeListener {
 
-        public GatewayFragment() { }
-
-        TextView rateValue, reliabilityValue;
-        SeekBar rateBar, reliabilityBar;
+//        public GatewayFragment() { }
+//
+//        TextView rateValue, reliabilityValue;
+//        SeekBar rateBar, reliabilityBar;
+//
+//        @Override
+//        public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+//            View v = inflater.inflate(R.layout.fragment_gateway, container, false);
+//            rateBar          = (SeekBar)v.findViewById(R.id.rateBar);
+//            reliabilityBar   = (SeekBar)v.findViewById(R.id.reliabilityBar);
+//            rateValue        = (TextView)v.findViewById(R.id.rateValue);
+//            reliabilityValue = (TextView)v.findViewById(R.id.reliabilityValue);
+//            rateBar.setOnSeekBarChangeListener(this);
+//            reliabilityBar.setOnSeekBarChangeListener(this);
+//            return v;
+//        }
+//
 
         @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-            View v = inflater.inflate(R.layout.fragment_gateway, container, false);
-            rateBar          = (SeekBar)v.findViewById(R.id.rateBar);
-            reliabilityBar   = (SeekBar)v.findViewById(R.id.reliabilityBar);
-            rateValue        = (TextView)v.findViewById(R.id.rateValue);
-            reliabilityValue = (TextView)v.findViewById(R.id.reliabilityValue);
-            rateBar.setOnSeekBarChangeListener(this);
-            reliabilityBar.setOnSeekBarChangeListener(this);
-            return v;
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            addPreferencesFromResource(R.xml.preferences);
         }
 
         @Override
         public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-            switch (seekBar.getId()) {
-                case R.id.rateBar: rateValue.setText(""+i); break;
-                case R.id.reliabilityBar: reliabilityValue.setText(""+i); break;
-            }
+//            switch (seekBar.getId()) {
+//                case R.id.rateBar: rateValue.setText(""+i); break;
+//                case R.id.reliabilityBar: reliabilityValue.setText(""+i); break;
+//            }
         }
 
         @Override
@@ -272,6 +282,7 @@ public class Gateway extends Activity {
 
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) { }
+
     }
 
     @Override

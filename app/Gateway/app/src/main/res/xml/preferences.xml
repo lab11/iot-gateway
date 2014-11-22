@@ -1,7 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <PreferenceCategory android:title="Supported Data Rates">
+    <EditTextPreference
+        android:defaultValue="7"
+        android:key="rates"
+        android:title="Supported Data Rates"/>
+    <EditTextPreference
+        android:defaultValue="7"
+        android:key="reliability"
+        android:title="Supported Reliability"/>
+    <PreferenceCategory android:title="Phone Access Permissions">
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="gps_fine"
+            android:title="GPS (Fine Resolution)" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="gps_med"
+            android:title="GPS (Med Resolution)" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="gps_far"
+            android:title="GPS (Far Resolution)" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="time"
+            android:title="Time" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="accelerometer"
+            android:title="Accelerometer" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="user_input"
+            android:title="User Input" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="camera_request"
+            android:title="Camera Request" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="ambient_light"
+            android:title="Ambient Light" />
     </PreferenceCategory>
+    <PreferenceCategory android:title="Allowed Program Types">
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="pay_programs"
+            android:title="Pay Programs" />
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="volunteer_programs"
+            android:title="Volunteer Programs" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Master Control">
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="ble_gateway"
+            android:title="BLE Gateway" />
+    </PreferenceCategory>
+
 
 </PreferenceScreen>
