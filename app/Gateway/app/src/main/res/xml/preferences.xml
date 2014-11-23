@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <EditTextPreference
-        android:defaultValue="7"
-        android:key="rates"
-        android:title="Supported Data Rates"/>
-    <EditTextPreference
-        android:defaultValue="7"
-        android:key="reliability"
-        android:title="Supported Reliability"/>
+    <PreferenceCategory android:title="Supported Data Rates">
+        <com.robobunny.SeekBarPreference
+            android:defaultValue="7"
+            android:key="rates_bar"
+            android:max="7"/>
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Supported Reliability">
+        <com.robobunny.SeekBarPreference
+            android:defaultValue="7"
+            android:key="reliability_bar"
+            android:max="7"/>
+    </PreferenceCategory>
     <PreferenceCategory android:title="Phone Access Permissions">
         <CheckBoxPreference
             android:defaultValue="true"

@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/Gateway.iml" filepath="$PROJECT_DIR$/Gateway.iml" />
+      <module fileurl="file://$PROJECT_DIR$/SeekBarPreference/SeekBarPref.iml" filepath="$PROJECT_DIR$/SeekBarPreference/SeekBarPref.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>
