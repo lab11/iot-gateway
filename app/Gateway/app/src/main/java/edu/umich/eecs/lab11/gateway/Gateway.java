@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.ParcelUuid;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -121,6 +122,13 @@ public class Gateway extends Activity {
 
     public boolean UUID_parse(BluetoothDevice device) {
 
+
+        ParcelUuid[] UUIDs = device.getUuids();
+        for (int i = 0; i < UUIDs.length; i++) {
+            ParcelUuid cur_uuid = UUIDs[i];
+            String uuid_str = cur_uuid.toString();
+
+        }
 
         return false;
     }
