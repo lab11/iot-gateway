@@ -4,64 +4,68 @@
     <PreferenceCategory android:title="Supported Data Rates">
         <com.robobunny.SeekBarPreference
             android:defaultValue="7"
-            android:key="rates_bar"
+            android:key="data_rate"
             android:max="7"/>
     </PreferenceCategory>
     <PreferenceCategory android:title="Supported Reliability">
         <com.robobunny.SeekBarPreference
-            android:defaultValue="7"
-            android:key="reliability_bar"
-            android:max="7"/>
+            android:defaultValue="15"
+            android:key="reliability_rate"
+            android:max="15"/>
     </PreferenceCategory>
     <PreferenceCategory android:title="Phone Access Permissions">
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="gps_fine"
+            android:key="gps_fine_agreement"
             android:title="GPS (Fine Resolution)" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="gps_med"
+            android:key="gps_mid_agreement"
             android:title="GPS (Med Resolution)" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="gps_far"
+            android:key="gps_far_agreement"
             android:title="GPS (Far Resolution)" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="time"
+            android:key="time_agreement"
             android:title="Time" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="accelerometer"
+            android:key="accel_agreement"
             android:title="Accelerometer" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="user_input"
+            android:key="user_input_agreement"
             android:title="User Input" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="camera_request"
+            android:key="user_camera_agreement"
             android:title="Camera Request" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="ambient_light"
+            android:key="ambient_agreement"
             android:title="Ambient Light" />
     </PreferenceCategory>
     <PreferenceCategory android:title="Allowed Program Types">
         <SwitchPreference
             android:defaultValue="true"
-            android:key="pay_programs"
+            android:key="mon_agreement"
             android:title="Pay Programs" />
         <SwitchPreference
             android:defaultValue="true"
-            android:key="volunteer_programs"
+            android:key="non_mon_agreement"
             android:title="Volunteer Programs" />
+        <EditTextPreference
+            android:defaultValue="PayMe"
+            android:key="program_text"
+            android:title="Program Name" />
     </PreferenceCategory>
     <PreferenceCategory android:title="Master Control">
         <SwitchPreference
             android:defaultValue="true"
-            android:key="ble_gateway"
-            android:title="BLE Gateway" />
+            android:key="master_agreement"
+            android:title="Allow Gateway" />
     </PreferenceCategory>
 
 

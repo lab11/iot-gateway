@@ -7,30 +7,26 @@ import java.sql.Array;
  */
 public class Peripheral {
 
-        public int[] UUID_FLAGS;
-        public int[] SENSOR_FLAGS;
-        public int[] ADV_FLAGS;
+    public String[] PEEK_FLAGS;
+    public String[] TRANSPARENT_FLAGS;
 
-        public enum Sensor_Fields {
-            GPS_FINE, GPS_MID, GPS_FAR,
-            time, accel, user_text,
-            user_picture, ambiant_light
-        }
+    public enum TRANSPARENT_ENUM {
+        ip_address, transparent_flag, rate,
+        data_blob
+    }
 
-        public enum UUID_Fields {
-            transparent_flag, rate,
-            level, sensors, program_need,
-            program_type, UUID_REST
-        }
+    public enum PEEK_ENUM {
+        ip_address, transparent_flag, rate,
+        level, sensors, program_need, program_type,
+        data_blob
+    }
 
-        public enum ADV_Fields {
-            ip_address, data_blob
-        }
-
-        public Peripheral() {
-            UUID_FLAGS = new int[7];
-            SENSOR_FLAGS = new int[8];
-            ADV_FLAGS = new int[2];
-        }
+    public Peripheral() {
+        //UUID_FLAGS = new int[7];
+        //SENSOR_FLAGS = new int[8];
+        //ADV_FLAGS = new int[2];
+        PEEK_FLAGS = new String[20];
+        TRANSPARENT_FLAGS = new String[20];
+    }
 
 }
