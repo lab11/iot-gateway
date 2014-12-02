@@ -14,6 +14,8 @@ import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -378,6 +380,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         return providers.contains(LocationManager.GPS_PROVIDER);
     }
 
+    public boolean isOnline() {
+        ConnectivityManager cm =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo netInfo = cm.getActiveNetworkInfo();
+        return netInfo != null && netInfo.isConnectedOrConnecting();
+    }
+
     public boolean do_sensors() {
         Log.w(top, "do_sensors()");
         Intent intent = new Intent(this, GatewayService.class);
@@ -531,9 +540,17 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 is_able = false;
             }
         }
+
+        if (periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
+            if (!isOnline()) {
+                Log.w("IS_ABLE_FALSE", "PERIPHERAL LEVEL NOT ALIGNED SERVICE");
+                is_able = false;
+            }
+        }
+
+   
         Log.w("IS_ABLE_SENSORS", String.valueOf(is_able));
 
-        //boolean is_able = true;
         if (is_able && intent_needed) {
             startService(intent);
             return true;

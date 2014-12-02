@@ -105,7 +105,7 @@ public class Demo extends PreferenceActivity {
         String accelBTN = boolToStr(cur_settings.getBoolean("peripheral_accel_req", true));
         String textBTN = boolToStr(cur_settings.getBoolean("peripheral_text_req", true));
         String userPicBTN = boolToStr(cur_settings.getBoolean("peripheral_pic_req", true));
-        String ambiantBTN = boolToStr(cur_settings.getBoolean("peripheral_ambiant_req", true));
+        String ambiantBTN = boolToStr(cur_settings.getBoolean("peripheral_ambient_req", true));
         String programTEXT = String.valueOf(cur_settings.getInt("incentive_rate", -1));
 
         String dataTEXT = cur_settings.getString("data_text", "FF");
