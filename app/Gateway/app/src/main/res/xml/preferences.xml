@@ -1,31 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <PreferenceCategory android:title="Supported Data Rates">
-        <com.robobunny.SeekBarPreference
-            android:defaultValue="7"
-            android:key="data_rate"
-            android:max="7"/>
-    </PreferenceCategory>
-    <PreferenceCategory android:title="Supported Reliability">
-        <com.robobunny.SeekBarPreference
-            android:defaultValue="15"
-            android:key="reliability_rate"
-            android:max="15"/>
-    </PreferenceCategory>
+
     <PreferenceCategory android:title="Phone Access Permissions">
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="gps_fine_agreement"
-            android:title="GPS (Fine Resolution)" />
+            android:key="gps_agreement"
+            android:title="GPS" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="gps_mid_agreement"
-            android:title="GPS (Med Resolution)" />
+            android:key="temp_agreement"
+            android:title="Temp" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="gps_far_agreement"
-            android:title="GPS (Far Resolution)" />
+            android:key="humidity_agreement"
+            android:title="Humidity" />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="time_agreement"
@@ -47,21 +36,26 @@
             android:key="ambient_agreement"
             android:title="Ambient Light" />
     </PreferenceCategory>
-    <PreferenceCategory android:title="Allowed Program Types">
-        <SwitchPreference
-            android:defaultValue="true"
-            android:key="mon_agreement"
-            android:title="Pay Programs" />
-        <SwitchPreference
-            android:defaultValue="true"
-            android:key="non_mon_agreement"
-            android:title="Volunteer Programs" />
-        <EditTextPreference
+    <PreferenceCategory android:title="Incentive Programs">
+        <com.robobunny.SeekBarPreference
+            android:title="Floor Pay (Zero Allows All)"
+            android:defaultValue="0"
+            android:key="min_pay_rate"
+            android:max="15"/>
+        <edu.umich.eecs.lab11.gateway.BetterEditText
             android:defaultValue="PayMe"
             android:key="program_text"
+            android:summary="%s"
             android:title="Program Name" />
     </PreferenceCategory>
-    <PreferenceCategory android:title="Master Control">
+    <PreferenceCategory android:title="Supported Data Rates (Seconds)">
+        <com.robobunny.SeekBarPreference
+            android:title="Repeat Rate (Zero Is Once)"
+            android:defaultValue="7"
+            android:key="data_rate"
+            android:max="7"/>
+    </PreferenceCategory>
+    <PreferenceCategory android:title=" ">
         <SwitchPreference
             android:defaultValue="true"
             android:key="master_agreement"
