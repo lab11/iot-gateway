@@ -62,6 +62,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private JSONObject jsonParams;
     private JSONObject programJSONParams;
 
+    private final boolean DEMO = false; //turns on or off the toast reports on failures
 
     private SensorManager mSensorManager;
 
@@ -194,6 +195,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         cur_peripheral.empty(); //NEW PACKET
 
         if (!cur_settings.getBoolean("master_agreement",false)) {
+            if (DEMO) {
+                Toast.makeText(this, "GATEWAY NOT ENABLED! STOPPING", Toast.LENGTH_SHORT).show();
+            }
+
             Log.w("POINT", "GATEWAY NOT ENABLED!");
             return; //BREAK OUT
         }
@@ -256,6 +261,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 Log.w("POINT", "SENSORS DONE!");
                 peripheral_program_level = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()], 2);
             } else {
+                if (DEMO) {
+                    Toast.makeText(this, "SENSORS NOT ABLE! Stopping", Toast.LENGTH_SHORT).show();
+                }
                 Log.w("POINT", "SENSORS NOT ABLE!");
                 return false;
             }
@@ -281,6 +289,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             if (user_pay_floor == 0) { // user does not want monitary program
                 schedule();
             } else {
+                if (DEMO) {
+                    Toast.makeText(this, "PROGRAM NOT SUPPORTED! Stopping", Toast.LENGTH_SHORT).show();
+                }
                 Log.w("POINT", "Program NOT SUPPORTED"); // peripheral can't pay
                 return false;
             }
@@ -298,6 +309,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 if (!do_monitary_program(peripheral_program_level)) return false; //pay as much as the peripheral wants
                 schedule();
             } else {
+                if (DEMO) {
+                    Toast.makeText(this, "PERIPHERAL CAN'T PAY! Stopping", Toast.LENGTH_SHORT).show();
+                }
                 Log.w("POINT", "Peripheral CAN'T PAY"); // peripheral can't pay
                 return false;
             }
@@ -318,14 +332,23 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     program_pay_to_send = pay_level.toString();
                     program_url_to_send = programURL.get(program_index);
                 } else {
+                    if (DEMO) {
+                        Toast.makeText(this, "PROGRAM CAN'T PAY PAY LEVEL! Stopping", Toast.LENGTH_SHORT).show();
+                    }
                     Log.w("POINT", "Program CAN'T PAY PAY LEVEL"); // peripheral can't pay
                     return false;
                 }
             } else {
+                if (DEMO) {
+                    Toast.makeText(this, "PROGRAM NOT CREDENTIALED! Stopping", Toast.LENGTH_SHORT).show();
+                }
                 Log.w("POINT", "Program NOT CREDENTIALED"); // peripheral can't pay
                 return false;
             }
         } else {
+            if (DEMO) {
+                Toast.makeText(this, "PROGRAM NAME NOT FOUND! Stopping", Toast.LENGTH_SHORT).show();
+            }
             Log.w("POINT", "Program NAME NOT FOUND"); // peripheral can't pay
             return false;
         }
