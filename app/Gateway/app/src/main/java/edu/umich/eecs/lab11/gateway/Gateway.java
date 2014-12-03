@@ -56,6 +56,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private ArrayList<String> programURL = new ArrayList<String>();
     private ArrayList<Integer> programSizesTotal = new ArrayList<Integer>();
 
+    private ArrayList<String> dataToPeek = new ArrayList<String>();
 
     private Peripheral cur_peripheral;
 
@@ -357,6 +358,43 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     private void schedule() {
         Log.w(top, "schedule()");
+        Log.w("POINT", "scheduling is not implemented");
+        post();
+    }
+
+    private void post() {
+        try {
+            jsonParams.put("id",);
+
+
+            for (int i = 0; i < dataToPeek.size(); i++) {
+                String[] key_val = dataToPeek.get(i).split(" ");
+                jsonParams.put(key_val[0], key_val[1]);
+            }
+
+            StringEntity entity = new StringEntity(jsonParams.toString());
+            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+
+
+
+            if (!program_name_to_send.equals("")) { //there is a program
+                Integer program_index = programValid.lastIndexOf(program_name_to_send);
+                program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
+                Integer cur_total_size = programSizesTotal.get(program_index);
+                cur_total_size += program_cur_packet_size;
+                programSizesTotal.set(program_index, cur_total_size);
+                send_program();
+            }
+
+            client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+            });
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     String mCurrentPhotoPath;
@@ -373,11 +411,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         );
         // Save a file: path for use with ACTION_VIEW intents
         mCurrentPhotoPath = "file:" + image.getAbsolutePath();
-        try {
-            jsonParams.put("s_image", image);
-        } catch (JSONException e) {
-            Log.w("JSONEception", "IMAGE");
-        }
         return image;
     }
 
@@ -461,7 +494,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 } else if (i == Peripheral.PEEK_ENUM.time.ordinal()) {
                     if (cur_settings.getBoolean("time_agreement", true)) {
                         Log.w("sensor_debug", "adding time to intent");
-                        peek_time = System.currentTimeMillis();
+                        String key_val = "time ";
+                        key_val += System.currentTimeMillis();
+                        dataToPeek.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW TIME");
                         sensor_access += "time";
@@ -605,11 +640,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int whichButton) {
                 String value = input.getText().toString();
-                try {
-                    jsonParams.put("s_text", value);
-                } catch (JSONException d) {
-                    Log.w("JSONException", "text");
-                }
+                String key_val = "text ";
+                key_val += value;
+                dataToPeek.add(key_val);
                 Log.w("sensor_debug", value);
             }
         });
@@ -783,6 +816,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            /*
                             try {
                                 jsonParams.put("advertisement",getHexString(scanRecord));
                                 jsonParams.put("device", (device.getName()!=null) ? device.getName() : "Unnamed" );
@@ -813,6 +847,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
+                            */
                         }
                     });
                 }
