@@ -31,6 +31,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.loopj.android.http.AsyncHttpClient;
+import com.loopj.android.http.AsyncHttpResponseHandler;
 
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
@@ -53,11 +54,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>();
     private ArrayList<Integer> programMaxPay = new ArrayList<Integer>();
     private ArrayList<String> programURL = new ArrayList<String>();
+    private ArrayList<Integer> programSizesTotal = new ArrayList<Integer>();
 
 
     private Peripheral cur_peripheral;
 
     private JSONObject jsonParams;
+    private JSONObject programJSONParams;
+
 
     private SensorManager mSensorManager;
 
@@ -86,6 +90,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private String program_name_to_send;
     private String program_pay_to_send;
     private String program_url_to_send;
+    private Integer program_cur_packet_size;
 
     private String final_str;
     private String final_binary_str;
@@ -548,7 +553,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             }
         }
 
-   
+
         Log.w("IS_ABLE_SENSORS", String.valueOf(is_able));
 
         if (is_able && intent_needed) {
@@ -728,6 +733,25 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         }
     }
 
+    private void send_program(){
+        try {
+            Integer program_index = programValid.lastIndexOf(program_name_to_send);
+            programJSONParams.put("program_name", program_name_to_send);
+            programJSONParams.put("size", program_cur_packet_size);
+            programJSONParams.put("total_size", programSizesTotal.get(program_index));
+
+            StringEntity entity = new StringEntity(programJSONParams.toString());
+            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+
+            client.post(getBaseContext(), programURL.get(program_index), entity, "application/json", new AsyncHttpResponseHandler() {
+                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
             new BluetoothAdapter.LeScanCallback() {
@@ -746,12 +770,22 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
                                 entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
 
-                                /*
+
+
+                                if (!program_name_to_send.equals("")) { //there is a program
+                                    Integer program_index = programValid.lastIndexOf(program_name_to_send);
+                                    program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
+                                    Integer cur_total_size = programSizesTotal.get(program_index);
+                                    cur_total_size += program_cur_packet_size;
+                                    programSizesTotal.set(program_index, cur_total_size);
+                                    send_program();
+                                }
+
                                 client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                                     @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                                     @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                                 });
-                                */
+
 
                             } catch (Exception e) {
                                 e.printStackTrace();
