@@ -1,0 +1,17 @@
+<preference-headers xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:tools="http://schemas.android.com/tools"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+tools:context=".Demo" >
+
+    <header android:fragment="edu.umich.eecs.lab11.peripheral.Demo$DemoFragment"
+        android:title="Edit Advertisement Options"/>
+
+    <header android:title="GENERATE"
+        android:summary="Final String is: "
+        android:id="@+id/gen_btn"/>
+
+    <header android:title="SEND"
+        android:id="@+id/send_btn"/>
+
+</preference-headers>

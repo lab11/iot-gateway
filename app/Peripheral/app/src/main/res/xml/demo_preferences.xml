@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <edu.umich.eecs.lab11.peripheral.BetterEditText
+        android:defaultValue=""
+        android:key="advertisement_value"
+        android:summary="%s"
+        android:title="Advertisement Value"
+        android:selectable="false"/>
+    <SwitchPreference android:title="Advertise Now"
+        android:key="advertise_switch"
+        android:defaultValue="true"/>
+    <Preference android:selectable="false"/>
+    <PreferenceScreen android:title="Edit Advertisement Options">
+        <PreferenceCategory android:title="Data Transport">
+            <edu.umich.eecs.lab11.peripheral.BetterEditText
+                android:defaultValue="20014701F1013202"
+                android:digits="0123456789ABCDEF"
+                android:inputType="textCapCharacters"
+                android:key="ip_text"
+                android:summary="%s"
+                android:title="IP Address" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_transparent_req"
+                android:title="Transparent" />
+            <com.robobunny.SeekBarPreference
+                android:title="Requested Data Rates (Seconds)"
+                android:defaultValue="0"
+                android:key="data_rate"
+                android:max="7"/>
+        </PreferenceCategory>
+        <PreferenceCategory android:title="Reliability">
+            <com.robobunny.SeekBarPreference
+                android:title="Program Level (See Spec for Def)"
+                android:defaultValue="0"
+                android:key="level_rate"
+                android:max="15"/>
+        </PreferenceCategory>
+        <PreferenceCategory android:title="Data Augmentation">
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_gps_req"
+                android:title="GPS" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_temp_req"
+                android:title="Temperature" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_humidity_req"
+                android:title="Humidity" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_time_req"
+                android:title="Time" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_accel_req"
+                android:title="Accelerometer" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_text_req"
+                android:title="User Input Text" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_pic_req"
+                android:title="User Input Photo" />
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="peripheral_ambient_req"
+                android:title="Ambient Light" />
+        </PreferenceCategory>
+        <PreferenceCategory android:title="User Incentive">
+        <com.robobunny.SeekBarPreference
+            android:title="Program Level (See Spec for Def)"
+            android:defaultValue="0"
+            android:key="incentive_rate"
+            android:max="15"/>
+        </PreferenceCategory>
+        <PreferenceCategory android:title="Data">
+            <edu.umich.eecs.lab11.peripheral.BetterEditText
+                android:defaultValue="FF"
+                android:digits="0123456789ABCDEF"
+                android:inputType="textCapCharacters"
+                android:key="data_text"
+                android:summary="%s"
+                android:title="Data" />
+        </PreferenceCategory>
+    </PreferenceScreen>
+
+
+
+</PreferenceScreen>

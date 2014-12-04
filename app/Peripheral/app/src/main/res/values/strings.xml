@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Peripheral</string>
+    <string name="action_settings">View Spec</string>
+    <string name="action_demo">Demo</string>
+    <string name="title_activity_demo">Send Demo Advertisement</string>
+
+</resources>
