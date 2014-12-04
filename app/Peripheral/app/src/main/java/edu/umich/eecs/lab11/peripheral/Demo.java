@@ -61,11 +61,11 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         }
 
         bleAdvertiser = bleAdapter.getBluetoothLeAdvertiser();
-//        if (bleAdvertiser == null) {
-//            Toast.makeText(this, "Peripheral Mode not supported", Toast.LENGTH_SHORT).show();
-//            finish();
-//            return;
-//        }
+        if (bleAdvertiser == null) {
+            Toast.makeText(this, "Peripheral Mode not supported", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         settingsBuilder = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
@@ -127,9 +127,9 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         if (!key.equals("advertisement_value")) doGen();
         if(key.equals("advertise_switch")) {
             getFragmentManager().beginTransaction().replace(android.R.id.content, new DemoFragment()).commit();
-//            if (cur_settings.getBoolean("advertisement_switch",false))
-//                bleAdvertiser.startAdvertising(settingsBuilder.build(),dataBuilder.build(),advertiseCallback);
-//            else bleAdvertiser.stopAdvertising(advertiseCallback);
+            if (cur_settings.getBoolean("advertisement_switch",false))
+                bleAdvertiser.startAdvertising(settingsBuilder.build(),dataBuilder.build(),advertiseCallback);
+            else bleAdvertiser.stopAdvertising(advertiseCallback);
         }
     }
 
