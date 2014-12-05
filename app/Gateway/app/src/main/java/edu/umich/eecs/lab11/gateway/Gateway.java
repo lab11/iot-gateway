@@ -24,19 +24,23 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
+import android.provider.Settings.Secure;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.Toast;
-
+import com.google.android.gms.ads.identifier.AdvertisingIdClient;
+import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
+import com.google.android.gms.common.GooglePlayServicesAvailabilityException;
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import java.io.IOException;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
 
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HTTP;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -106,8 +110,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private SharedPreferences cur_settings;
 
     // META data to pass along
-    //private String gateway_id = Secure.getString(getApplicationContext().getContentResolver(),
-    //        Secure.ANDROID_ID); //TODO Known issues with this method... move to an DB call that we keep
+    private String gateway_id = Secure.getString(getApplicationContext().getContentResolver(),
+        Secure.ANDROID_ID); //TODO Known issues with this method... move to an DB call that we keep... can be null
+
+
+
+    private String adv_id;
     private String gateway_first_contact_time;
     private String gateway_transmit_time;
     private String gate_size_transmit;
@@ -364,7 +372,24 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     private void post() {
         try {
-            jsonParams.put("id",);
+            //jsonParams.put("id",);
+
+            Info adInfo = null;
+            try {
+                adInfo = AdvertisingIdClient.getAdvertisingIdInfo(mContext);
+
+            } catch (IOException e) {
+                // Unrecoverable error connecting to Google Play services (e.g.,
+                // the old version of the service doesn't support getting AdvertisingId).
+
+            } catch (GooglePlayServicesAvailabilityException e) {
+                // Encountered a recoverable error connecting to Google Play services.
+
+            } catch (GooglePlayServicesNotAvailableException e) {
+                // Google Play services is not available entirely.
+            }
+            final String id = adInfo.getId();
+
 
 
             for (int i = 0; i < dataToPeek.size(); i++) {
