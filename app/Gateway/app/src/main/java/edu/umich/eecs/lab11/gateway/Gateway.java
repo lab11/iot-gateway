@@ -25,6 +25,7 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.provider.Settings.Secure;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -47,6 +48,7 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -71,8 +73,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     private SensorManager mSensorManager;
 
-    private  final static String INTENT_TRUE = "TRUE";
-    private  final static String INTENT_FALSE = "FALSE";
+    private final static String INTENT_TRUE = "TRUE";
+    private final static String INTENT_FALSE = "FALSE";
 
     private final static String INTENT_SENSOR_ACCEL = "ACCEL";
     private final static String INTENT_SENSOR_TEMP = "TEMP";
@@ -111,8 +113,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     // META data to pass along
     private String gateway_id = Secure.getString(getApplicationContext().getContentResolver(),
-        Secure.ANDROID_ID); //TODO Known issues with this method... move to an DB call that we keep... can be null
-
+            Secure.ANDROID_ID); //TODO Known issues with this method... move to an DB call that we keep... can be null
 
 
     private String adv_id;
@@ -189,7 +190,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public String hexToBinary(final String hexStr) {
         StringBuffer binStr = new StringBuffer();
-        String[] conversionTable = { "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111" };
+        String[] conversionTable = {"0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111"};
 
         for (int i = 0; i < hexStr.length(); i++) {
             binStr.append(conversionTable[Character.digit(hexStr.charAt(i), 16)]);
@@ -203,7 +204,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         cur_peripheral.empty(); //NEW PACKET
 
-        if (!cur_settings.getBoolean("master_agreement",false)) {
+        if (!cur_settings.getBoolean("master_agreement", false)) {
             if (DEMO) {
                 Toast.makeText(this, "GATEWAY NOT ENABLED! STOPPING", Toast.LENGTH_SHORT).show();
             }
@@ -215,13 +216,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         // Do the actual parsing
         // TODO: change these to actual offsets... hardcode hack
         final_binary_str = hexToBinary(final_str);
-        String IP = final_binary_str.substring(0,64);
-        IP = String.format("%21X", Long.parseLong(IP,2));
-        String TRANSPARENT = final_binary_str.substring(64,65);
-        String RATE = final_binary_str.substring(65,68);
-        String LEVEL = final_binary_str.substring(68,72);
-        String SENSORS = final_binary_str.substring(72,80);
-        String PROGRAM_TYPE = final_binary_str.substring(80,84);
+        String IP = final_binary_str.substring(0, 64);
+        IP = String.format("%21X", Long.parseLong(IP, 2));
+        String TRANSPARENT = final_binary_str.substring(64, 65);
+        String RATE = final_binary_str.substring(65, 68);
+        String LEVEL = final_binary_str.substring(68, 72);
+        String SENSORS = final_binary_str.substring(72, 80);
+        String PROGRAM_TYPE = final_binary_str.substring(80, 84);
         String DATA = final_binary_str.substring(84);
 
         /*
@@ -266,7 +267,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         //DO SENSORS
         Integer peripheral_program_level;
         if (TRANSPARENT.equals("0")) { //DONE WITH TRANSPARENT BIT
-            if (do_sensors()){ //all sensors were fine
+            if (do_sensors()) { //all sensors were fine
                 Log.w("POINT", "SENSORS DONE!");
                 peripheral_program_level = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()], 2);
             } else {
@@ -287,7 +288,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         Log.w(top, "switch_grant()");
 
         Integer user_program_level = cur_settings.getInt("level_rate", 15);
-        Integer user_pay_floor = cur_settings.getInt("min_pay_rate",0);
+        Integer user_pay_floor = cur_settings.getInt("min_pay_rate", 0);
 
         Log.w("SWITCH_GRANT_periph_level", peripheral_program_level.toString());
         Log.w("SWITCH_GRANT_user_level", user_program_level.toString());
@@ -304,18 +305,18 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 Log.w("POINT", "Program NOT SUPPORTED"); // peripheral can't pay
                 return false;
             }
-        }
-        else if (peripheral_program_level == 15) { // every program supported by peripheral
+        } else if (peripheral_program_level == 15) { // every program supported by peripheral
             if (user_pay_floor != 0) { // user wants monitary program
-                if (!do_monitary_program(peripheral_program_level)) return false; // peripheral can pay... max that sucker out
+                if (!do_monitary_program(peripheral_program_level))
+                    return false; // peripheral can pay... max that sucker out
                 schedule();
             } else {
                 schedule(); //user doesn't care... send it altruistically
             }
-        }
-        else {  // some programs supported by peripheral
+        } else {  // some programs supported by peripheral
             if (peripheral_program_level >= user_pay_floor) { // the peripheral can support up to a certain amount of pay... user accepts
-                if (!do_monitary_program(peripheral_program_level)) return false; //pay as much as the peripheral wants
+                if (!do_monitary_program(peripheral_program_level))
+                    return false; //pay as much as the peripheral wants
                 schedule();
             } else {
                 if (DEMO) {
@@ -391,7 +392,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             final String id = adInfo.getId();
 
 
-
             for (int i = 0; i < dataToPeek.size(); i++) {
                 String[] key_val = dataToPeek.get(i).split(" ");
                 jsonParams.put(key_val[0], key_val[1]);
@@ -399,7 +399,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
             StringEntity entity = new StringEntity(jsonParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-
 
 
             if (!program_name_to_send.equals("")) { //there is a program
@@ -411,9 +410,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 send_program();
             }
 
-            client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+            client.post(getBaseContext(), "http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                @Override
+                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
+                }
+
+                @Override
+                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
+                }
             });
 
 
@@ -423,6 +427,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     String mCurrentPhotoPath;
+
     private File createImageFile() throws IOException {
         // Create an image file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
@@ -457,12 +462,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
 
-    public boolean hasGPSDevice(Context context)
-    {
-        final LocationManager mgr = (LocationManager)context.getSystemService(Context.LOCATION_SERVICE);
-        if ( mgr == null ) return false;
+    public boolean hasGPSDevice(Context context) {
+        final LocationManager mgr = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        if (mgr == null) return false;
         final List<String> providers = mgr.getAllProviders();
-        if ( providers == null ) return false;
+        if (providers == null) return false;
         return providers.contains(LocationManager.GPS_PROVIDER);
     }
 
@@ -604,7 +608,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         }
 
         //Check to see if the failure is ok based on peripheral_level
-        Integer periph_level = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()],2);
+        Integer periph_level = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()], 2);
         boolean is_able = true;
         if (failable_hw.length() != 0 || sensor_access.length() != 0) { //so hw doesn't support some sensor or user doesn't allow some sensor
             if (periph_level == Peripheral.LEVEL_ENUM.REQ_NONE.ordinal() ||
@@ -621,9 +625,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             if (periph_level == Peripheral.LEVEL_ENUM.REQ_NONE.ordinal() ||
                     periph_level == Peripheral.LEVEL_ENUM.REQ_ALL_NO_SENSORS.ordinal() ||
                     periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_CONNECTION.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_SERVICE.ordinal() ) {
-            }
-            else {
+                    periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
+            } else {
                 Log.w("IS_ABLE_FALSE", "PERIPHERAL LEVEL NOT ALIGNED GPS");
                 is_able = false;
             }
@@ -700,7 +703,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 check_ack_able();
                 schedule_ack();
                 break;
-            default: break;
+            default:
+                break;
         }
     }
 
@@ -771,7 +775,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             return;
         }
         if (requestCode == DEMO_STR && resultCode == Activity.RESULT_OK) {
-            final_str  = data.getStringExtra("FINAL_STR");
+            final_str = data.getStringExtra("FINAL_STR");
             Log.w(top, "HIT DEMO REQUEST");
 
             this.parse(); //FROM DEMO
@@ -795,10 +799,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 public void run() {
                     scanLeDevice(false);
                 }
-            }, SCAN_PERIOD/2);
+            }, SCAN_PERIOD / 2);
 
             mScanning = true;
-            try {mBluetoothAdapter.startLeScan(mLeScanCallback);} catch(Exception e) {e.printStackTrace();}
+            try {
+                mBluetoothAdapter.startLeScan(mLeScanCallback);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         } else {
             if (!paused)
                 mHandler.postDelayed(new Runnable() {
@@ -806,15 +814,17 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     public void run() {
                         scanLeDevice(true);
                     }
-                }, SCAN_PERIOD/2);
+                }, SCAN_PERIOD / 2);
             mScanning = false;
             try {
                 mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            } catch (Exception e) {e.printStackTrace();}
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
-    private void send_program(){
+    private void send_program() {
         try {
             Integer program_index = programValid.lastIndexOf(program_name_to_send);
             programJSONParams.put("program_name", program_name_to_send);
@@ -825,8 +835,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
 
             client.post(getBaseContext(), programURL.get(program_index), entity, "application/json", new AsyncHttpResponseHandler() {
-                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+                @Override
+                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
+                }
+
+                @Override
+                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
+                }
             });
         } catch (Exception e) {
             e.printStackTrace();
@@ -841,6 +856,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            try {
+                                Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
+//                                    Log.d("DEBUG",device.getUuids().toString());
+                                printScanRecord(scanRecord);
+                            } catch (Exception e) {
+                            }
                             /*
                             try {
                                 jsonParams.put("advertisement",getHexString(scanRecord));
@@ -879,10 +900,82 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             };
 
 
-    public static String getHexString (byte[] buf)
-    {
+    public static String getHexString(byte[] buf) {
         StringBuffer sb = new StringBuffer();
-        for (byte b:buf) sb.append(String.format("%X", b));
+        for (byte b : buf) sb.append(String.format("%X", b));
         return sb.toString();
+    }
+
+    public static String ByteArrayToString(byte[] ba) {
+        StringBuilder hex = new StringBuilder(ba.length * 2);
+        for (byte b : ba)
+            hex.append(b + " ");
+
+        return hex.toString();
+    }
+
+    public void printScanRecord(byte[] scanRecord) {
+
+        // Simply print all raw bytes
+        try {
+            String decodedRecord = new String(scanRecord, "UTF-8");
+            Log.d("DEBUG", "decoded String : " + ByteArrayToString(scanRecord));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Parse data bytes into individual records
+        List<AdRecord> records = AdRecord.parseScanRecord(scanRecord);
+
+
+        // Print individual records
+        if (records.size() == 0) {
+            Log.i("DEBUG", "Scan Record Empty");
+        } else {
+            Log.i("DEBUG", "Scan Record: " + TextUtils.join(",", records));
+        }
+
+    }
+
+    public static class AdRecord {
+
+        public AdRecord(int length, int type, byte[] data) {
+            String decodedRecord = "";
+            try {
+                decodedRecord = new String(data, "UTF-8");
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + getHexString(data));
+        }
+
+        // ...
+
+        public static List<AdRecord> parseScanRecord(byte[] scanRecord) {
+            List<AdRecord> records = new ArrayList<AdRecord>();
+
+            int index = 0;
+            while (index < scanRecord.length) {
+                int length = scanRecord[index++];
+                //Done once we run out of records
+                if (length == 0) break;
+
+                int type = scanRecord[index];
+                //Done if our record isn't a valid type
+                if (type == 0) break;
+
+                byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
+
+                records.add(new AdRecord(length, type, data));
+                //Advance
+                index += length;
+            }
+
+            return records;
+        }
+
+        // ...
     }
 }
