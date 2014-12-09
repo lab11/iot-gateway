@@ -24,18 +24,12 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
-import android.provider.Settings.Secure;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.Toast;
-//import com.google.android.gms.ads.identifier.AdvertisingIdClient;
-//import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
-//import com.google.android.gms.common.GooglePlayServicesAvailabilityException;
-//import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
-import java.io.IOException;
+
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
 
@@ -51,6 +45,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+
+//import com.google.android.gms.ads.identifier.AdvertisingIdClient;
+//import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
+//import com.google.android.gms.common.GooglePlayServicesAvailabilityException;
+//import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 
 
 
@@ -198,11 +197,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         return binStr.toString();
     }
 
-    public void parse() {
+
+
+    public void parse(String a) {
         Log.w(top, "parse()");
-
-
-        cur_peripheral.empty(); //NEW PACKET
 
         if (!cur_settings.getBoolean("master_agreement", false)) {
             if (DEMO) {
@@ -212,18 +210,20 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w("POINT", "GATEWAY NOT ENABLED!");
             return; //BREAK OUT
         }
+        cur_peripheral.empty(); //NEW PACKET
 
-        // Do the actual parsing
-        // TODO: change these to actual offsets... hardcode hack
-        final_binary_str = hexToBinary(final_str);
-        String IP = final_binary_str.substring(0, 64);
-        IP = String.format("%21X", Long.parseLong(IP, 2));
-        String TRANSPARENT = final_binary_str.substring(64, 65);
-        String RATE = final_binary_str.substring(65, 68);
-        String LEVEL = final_binary_str.substring(68, 72);
-        String SENSORS = final_binary_str.substring(72, 80);
-        String PROGRAM_TYPE = final_binary_str.substring(80, 84);
-        String DATA = final_binary_str.substring(84);
+        if (a.equals("")) {
+            // Do the actual parsing
+            // TODO: change these to actual offsets... hardcode hack
+            final_binary_str = hexToBinary(final_str);
+            String IP = final_binary_str.substring(0, 64);
+            IP = String.format("%21X", Long.parseLong(IP, 2));
+            String TRANSPARENT = final_binary_str.substring(64, 65);
+            String RATE = final_binary_str.substring(65, 68);
+            String LEVEL = final_binary_str.substring(68, 72);
+            String SENSORS = final_binary_str.substring(72, 80);
+            String PROGRAM_TYPE = final_binary_str.substring(80, 84);
+            String DATA = final_binary_str.substring(84);
 
         /*
         Log.w("PARSE_FINAL_STR", final_str);
@@ -236,29 +236,56 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         Log.w("PARSE_DATA", DATA);
         */
 
-        if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
-            Log.w("POINT", "TRANSPARENT FORWARD");
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
+            if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
+                Log.w("POINT", "TRANSPARENT FORWARD");
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
+            } else {
+                Log.w("POINT", "PEEK FORWARD");
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambiant.ordinal()] = String.valueOf(SENSORS.charAt(7));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
+            }
+            run_forward(TRANSPARENT);
         } else {
-            Log.w("POINT", "PEEK FORWARD");
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()] = LEVEL;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambiant.ordinal()] = String.valueOf(SENSORS.charAt(7));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
+            String t = a.substring(2,4) + a.substring(0,2) + a.substring(4,32) + "    PARSE_:" + a.substring(32);
+            Log.w("PARSING A REAL THING!", t);
+
+
+            String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,32);
+            Log.w("PARSE_IP", IP);
+
+
+            final_binary_str = hexToBinary(a.substring(32));
+            Log.w("PARSE_FINAL", final_binary_str);
+            String TRANSPARENT = final_binary_str.substring(0, 1);
+            String RATE = final_binary_str.substring(1, 4);
+            String LEVEL = final_binary_str.substring(4, 8);
+            String SENSORS = final_binary_str.substring(8, 16);
+            String PROGRAM_TYPE = final_binary_str.substring(16, 20);
+            String DATA = final_binary_str.substring(20);
+
+            Log.w("PARSE_TRANSPARENT", TRANSPARENT);
+            Log.w("PARSE_RATE", RATE);
+            Log.w("PARSE_LEVEL", LEVEL);
+            Log.w("PARSE_SENSORS", SENSORS);
+            Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
+            Log.w("PARSE_DATA", DATA);
+
+
         }
-        run_forward(TRANSPARENT);
     }
 
 
@@ -778,7 +805,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             final_str = data.getStringExtra("FINAL_STR");
             Log.w(top, "HIT DEMO REQUEST");
 
-            this.parse(); //FROM DEMO
+            this.parse(""); //FROM DEMO
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -858,8 +885,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                         public void run() {
                             try {
                                 Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
-//                                    Log.d("DEBUG",device.getUuids().toString());
-                                printScanRecord(scanRecord);
+                                parseStuff(scanRecord);
                             } catch (Exception e) {
                             }
                             /*
@@ -914,7 +940,28 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         return hex.toString();
     }
 
-    public void printScanRecord(byte[] scanRecord) {
+    public void parseStuff(byte[] scanRecord) {
+        int index = 0;
+        while (index < scanRecord.length) {
+            int length = scanRecord[index++];
+//Done once we run out of records
+            if (length == 0) break;
+
+            int type = scanRecord[index];
+//Done if our record isn't a valid type
+            if (type == 0) break;
+
+            byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
+            Log.w("TYPE", String.valueOf(scanRecord[index]));
+if (type==22)
+            parse(getHexString(data));
+//Advance
+            index += length;
+        }
+    }
+
+    /*
+    public String printScanRecord(byte[] scanRecord) {
 
         // Simply print all raw bytes
         try {
@@ -926,6 +973,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         // Parse data bytes into individual records
         List<AdRecord> records = AdRecord.parseScanRecord(scanRecord);
+        for (int i = 0; i < records.size(); i++) {
+            Log.w("RECORD PRINT", TextUtils.join(",", records));
+        }
 
 
         // Print individual records
@@ -934,7 +984,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         } else {
             Log.i("DEBUG", "Scan Record: " + TextUtils.join(",", records));
         }
-
+        return "";
     }
 
     public static class AdRecord {
@@ -982,4 +1032,5 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         // ...
     }
+    */
 }
