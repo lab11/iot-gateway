@@ -12,6 +12,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelUuid;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
@@ -38,7 +39,6 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         super.onCreate(savedInstanceState);
         cur_settings = PreferenceManager.getDefaultSharedPreferences(this);
         cur_settings.registerOnSharedPreferenceChangeListener(this);
-        doGen();
         getFragmentManager().beginTransaction().replace(android.R.id.content, new DemoFragment()).commit();
 
         // Use this check to determine whether BLE is supported on the device.  Then you can
@@ -60,40 +60,11 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
             return;
         }
 
-        bleAdvertiser = bleAdapter.getBluetoothLeAdvertiser();
-        if (bleAdvertiser == null) {
-            Toast.makeText(this, "Peripheral Mode not supported", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
-        settingsBuilder = new AdvertiseSettings.Builder()
-                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-                .setConnectable(true).setTimeout(0);
-        dataBuilder = new AdvertiseData.Builder();
-        System.out.println(settingsBuilder);
-        System.out.println(dataBuilder);
-
-        if (cur_settings.getBoolean("advertisement_switch",false))
-            bleAdvertiser.startAdvertising(settingsBuilder.build(),dataBuilder.build(),advertiseCallback);
-
     }
-
-    private AdvertiseCallback advertiseCallback = new AdvertiseCallback() {
-        @Override
-        public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-            super.onStartSuccess(settingsInEffect);
-            System.out.println("SUCCESS!");
-        }
-        @Override
-        public void onStartFailure(int errorCode) {
-            super.onStartFailure(errorCode);
-            System.out.println("FAIL!");
-        }
-    };
 
     protected void onResume() {
         super.onResume();
+        cur_settings = PreferenceManager.getDefaultSharedPreferences(this);
         cur_settings.registerOnSharedPreferenceChangeListener(this);
 
         // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
@@ -104,12 +75,45 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
                 startActivityForResult(enableBtIntent, 1);
             }
         }
+
+        bleAdvertiser = bleAdapter.getBluetoothLeAdvertiser();
+        advertise();
     }
 
     protected void onPause() {
         super.onPause();
         cur_settings.unregisterOnSharedPreferenceChangeListener(this);
     }
+
+    private void advertise() {
+        getFragmentManager().beginTransaction().replace(android.R.id.content, new DemoFragment()).commit();
+        String ad_value = cur_settings.getString("advertisement_value","0000");
+        settingsBuilder = new AdvertiseSettings.Builder()
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+                .setConnectable(true).setTimeout(0);
+        dataBuilder = new AdvertiseData.Builder()
+//                .setIncludeDeviceName(true)
+                .addServiceData(shortUUID(ad_value.substring(0,4)),toByteArray(ad_value.substring(4)));
+        if (cur_settings.getBoolean("advertise_switch",false))
+            bleAdvertiser.startAdvertising(settingsBuilder.build(), dataBuilder.build(), advertiseCallback);
+    }
+
+    private AdvertiseCallback advertiseCallback = new AdvertiseCallback() {
+        @Override
+        public void onStartSuccess(AdvertiseSettings settingsInEffect) {
+            super.onStartSuccess(settingsInEffect);
+            toastNotify("Started Advertising");
+        }
+        @Override
+        public void onStartFailure(int errorCode) {
+            super.onStartFailure(errorCode);
+            toastNotify("Failed to Advertise");
+            cur_settings.edit().putBoolean("advertise_switch",false).commit();
+        }
+
+    };
+
 
     /**
      * Settings Fragment: Pulls information from preference xml & automatically updates on change
@@ -124,13 +128,15 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        if (!key.equals("advertisement_value")) doGen();
+        doGen();
         if(key.equals("advertise_switch")) {
-            getFragmentManager().beginTransaction().replace(android.R.id.content, new DemoFragment()).commit();
-            if (cur_settings.getBoolean("advertisement_switch",false))
-                bleAdvertiser.startAdvertising(settingsBuilder.build(),dataBuilder.build(),advertiseCallback);
-            else bleAdvertiser.stopAdvertising(advertiseCallback);
-        }
+            if (cur_settings.getBoolean("advertise_switch",false)) {
+                advertise();
+            } else {
+                bleAdvertiser.stopAdvertising(advertiseCallback);
+                toastNotify("Stopped Advertising");
+            }
+        } else cur_settings.edit().putBoolean("advertise_switch",false).commit();
     }
 
 //    @Override
@@ -234,9 +240,8 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         final_str = IPTEXT + first_nib + second_nib;
         final_str += third_fourth_nib + fifth_nib + dataTEXT;
         Log.w(tag, final_str);
+        cur_settings.edit().putString("advertisement_value",final_str).commit();
         cur_settings.getString("advertisement_value",final_str);
-
-        cur_settings.edit().putString("advertisement_value", final_str).commit();
 
     }
 
@@ -254,13 +259,35 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         if (id == R.id.action_settings) {
-            startActivity(new Intent("android.intent.action.VIEW",
-                    Uri.parse("http://bit.ly/11MSxZW")));
+            startActivity(new Intent("android.intent.action.VIEW", Uri.parse("http://bit.ly/11MSxZW")));
             return true;
+        } else if (id == R.id.action_reset) {
+            cur_settings.edit().clear().commit();
+            getFragmentManager().beginTransaction().replace(android.R.id.content, new DemoFragment()).commit();
         }
         return super.onOptionsItemSelected(item);
     }
 
+    /*
+     * HELPER FUNCTIONS
+     */
+
+    public byte[] toByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2 + len % 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + ((i+1)>=len ? 0 : Character.digit(s.charAt(i+1), 16)));
+        }
+        return data;
+    }
+
+    public ParcelUuid shortUUID(String s) {
+        return ParcelUuid.fromString("0000" + s + "-0000-1000-8000-00805F9B34FB");
+    }
+
+    public void toastNotify(String m) {
+        Toast.makeText(this, m, Toast.LENGTH_SHORT).show();
+    }
 
 
 }

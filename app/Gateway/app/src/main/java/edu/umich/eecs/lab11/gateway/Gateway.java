@@ -31,10 +31,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.Toast;
-import com.google.android.gms.ads.identifier.AdvertisingIdClient;
-import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
-import com.google.android.gms.common.GooglePlayServicesAvailabilityException;
-import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+//import com.google.android.gms.ads.identifier.AdvertisingIdClient;
+//import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
+//import com.google.android.gms.common.GooglePlayServicesAvailabilityException;
+//import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import java.io.IOException;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
@@ -112,8 +112,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private SharedPreferences cur_settings;
 
     // META data to pass along
-    private String gateway_id = Secure.getString(getApplicationContext().getContentResolver(),
-            Secure.ANDROID_ID); //TODO Known issues with this method... move to an DB call that we keep... can be null
+//    private String gateway_id = Secure.getString(getApplicationContext().getContentResolver(),
+//            Secure.ANDROID_ID); //TODO Known issues with this method... move to an DB call that we keep... can be null
 
 
     private String adv_id;
@@ -375,21 +375,21 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         try {
             //jsonParams.put("id",);
 
-            Info adInfo = null;
-            try {
-                adInfo = AdvertisingIdClient.getAdvertisingIdInfo(mContext);
-
-            } catch (IOException e) {
-                // Unrecoverable error connecting to Google Play services (e.g.,
-                // the old version of the service doesn't support getting AdvertisingId).
-
-            } catch (GooglePlayServicesAvailabilityException e) {
-                // Encountered a recoverable error connecting to Google Play services.
-
-            } catch (GooglePlayServicesNotAvailableException e) {
-                // Google Play services is not available entirely.
-            }
-            final String id = adInfo.getId();
+//            Info adInfo = null;
+//            try {
+//                adInfo = AdvertisingIdClient.getAdvertisingIdInfo(mContext);
+//
+//            } catch (IOException e) {
+//                // Unrecoverable error connecting to Google Play services (e.g.,
+//                // the old version of the service doesn't support getting AdvertisingId).
+//
+//            } catch (GooglePlayServicesAvailabilityException e) {
+//                // Encountered a recoverable error connecting to Google Play services.
+//
+//            } catch (GooglePlayServicesNotAvailableException e) {
+//                // Google Play services is not available entirely.
+//            }
+//            final String id = adInfo.getId();
 
 
             for (int i = 0; i < dataToPeek.size(); i++) {
@@ -902,7 +902,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public static String getHexString(byte[] buf) {
         StringBuffer sb = new StringBuffer();
-        for (byte b : buf) sb.append(String.format("%X", b));
+        for (byte b : buf) sb.append(String.format("%02X", b));
         return sb.toString();
     }
 
@@ -949,6 +949,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             }
 
             Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + getHexString(data));
+            String a = getHexString(data);
+            if (type==22) {
+                System.out.println("\n\nIP Address:" + a.substring(2,4) + a.substring(0,2) + a.substring(4,32) + "    Options:" + a.substring(32) + "\n");
+            }
         }
 
         // ...
