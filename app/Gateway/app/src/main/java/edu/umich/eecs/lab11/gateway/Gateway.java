@@ -199,7 +199,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
 
 
-    public void parse(String a) {
+    public void parse(String devName, String devAddress, int rssi, String a) {
         Log.w(top, "parse()");
 
         if (!cur_settings.getBoolean("master_agreement", false)) {
@@ -284,6 +284,25 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
             Log.w("PARSE_DATA", DATA);
 
+            try {
+                JSONObject gatdParams = new JSONObject();
+                gatdParams.put("DEVICE ID", devAddress);
+                gatdParams.put("NAME", devName);
+                gatdParams.put("RSSI", rssi);
+                gatdParams.put("DESTINATION", IP);
+                gatdParams.put("TRANSPARENT", TRANSPARENT);
+                gatdParams.put("RATE", RATE);
+                gatdParams.put("LEVEL", LEVEL);
+                gatdParams.put("SENSORS", SENSORS);
+                gatdParams.put("PROGRAM", PROGRAM_TYPE);
+                gatdParams.put("DATA", DATA);
+                StringEntity entity = new StringEntity(gatdParams.toString());
+                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));//"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a"
+                client.post(getBaseContext(),"http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() {
+                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+                });
+            } catch (Exception e) {}
 
         }
     }
@@ -804,8 +823,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         if (requestCode == DEMO_STR && resultCode == Activity.RESULT_OK) {
             final_str = data.getStringExtra("FINAL_STR");
             Log.w(top, "HIT DEMO REQUEST");
-
-            this.parse(""); //FROM DEMO
+            this.parse("","",0,""); //FROM DEMO
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -826,7 +844,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 public void run() {
                     scanLeDevice(false);
                 }
-            }, SCAN_PERIOD / 2);
+            }, SCAN_PERIOD);
 
             mScanning = true;
             try {
@@ -841,7 +859,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     public void run() {
                         scanLeDevice(true);
                     }
-                }, SCAN_PERIOD / 2);
+                }, 1000);
             mScanning = false;
             try {
                 mBluetoothAdapter.stopLeScan(mLeScanCallback);
@@ -861,7 +879,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             StringEntity entity = new StringEntity(programJSONParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
 
-            client.post(getBaseContext(), programURL.get(program_index), entity, "application/json", new AsyncHttpResponseHandler() {
+            client.post(getBaseContext(), /*programURL.get(program_index)*/ "http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                 @Override
                 public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
                 }
@@ -875,6 +893,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         }
     }
 
+
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
             new BluetoothAdapter.LeScanCallback() {
@@ -885,41 +904,41 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                         public void run() {
                             try {
                                 Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
-                                parseStuff(scanRecord);
+                                parseStuff(device, rssi, scanRecord);
                             } catch (Exception e) {
                             }
-                            /*
-                            try {
-                                jsonParams.put("advertisement",getHexString(scanRecord));
-                                jsonParams.put("device", (device.getName()!=null) ? device.getName() : "Unnamed" );
-                                jsonParams.put("address", device.getAddress());
-                                jsonParams.put("rssi", rssi);
-                                System.out.println(getHexString(scanRecord));
-                                StringEntity entity = new StringEntity(jsonParams.toString());
 
-                                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+//                            try {
+//                                jsonParams.put("advertisement",getHexString(scanRecord));
+//                                jsonParams.put("device", (device.getName()!=null) ? device.getName() : "Unnamed" );
+//                                jsonParams.put("address", device.getAddress());
+//                                jsonParams.put("rssi", rssi);
+//                                System.out.println(getHexString(scanRecord));
+//                                StringEntity entity = new StringEntity(jsonParams.toString());
+//
+//                                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+//
+//
+//
+////                                if (!program_name_to_send.equals("")) { //there is a program
+////                                    Integer program_index = programValid.lastIndexOf(program_name_to_send);
+////                                    program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
+////                                    Integer cur_total_size = programSizesTotal.get(program_index);
+////                                    cur_total_size += program_cur_packet_size;
+////                                    programSizesTotal.set(program_index, cur_total_size);
+////                                    send_program();
+////                                }
+//
+//                                client.post(getBaseContext(),"http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() {
+//                                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+//                                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+//                                });
+//
+//
+//                            } catch (Exception e) {
+//                                e.printStackTrace();
+//                            }
 
-
-
-                                if (!program_name_to_send.equals("")) { //there is a program
-                                    Integer program_index = programValid.lastIndexOf(program_name_to_send);
-                                    program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
-                                    Integer cur_total_size = programSizesTotal.get(program_index);
-                                    cur_total_size += program_cur_packet_size;
-                                    programSizesTotal.set(program_index, cur_total_size);
-                                    send_program();
-                                }
-
-                                client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-                                });
-
-
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                            */
                         }
                     });
                 }
@@ -940,7 +959,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         return hex.toString();
     }
 
-    public void parseStuff(byte[] scanRecord) {
+    public void parseStuff(BluetoothDevice device, int rssi, byte[] scanRecord) {
         int index = 0;
         while (index < scanRecord.length) {
             int length = scanRecord[index++];
@@ -954,7 +973,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
             Log.w("TYPE", String.valueOf(scanRecord[index]));
 if (type==22)
-            parse(getHexString(data));
+            parse(device.getName(),device.getAddress(),rssi, getHexString(data));
 //Advance
             index += length;
         }
