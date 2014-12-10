@@ -284,25 +284,36 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
             Log.w("PARSE_DATA", DATA);
 
-            try {
-                JSONObject gatdParams = new JSONObject();
-                gatdParams.put("DEVICE ID", devAddress);
-                gatdParams.put("NAME", devName);
-                gatdParams.put("RSSI", rssi);
-                gatdParams.put("DESTINATION", IP);
-                gatdParams.put("TRANSPARENT", TRANSPARENT);
-                gatdParams.put("RATE", RATE);
-                gatdParams.put("LEVEL", LEVEL);
-                gatdParams.put("SENSORS", SENSORS);
-                gatdParams.put("PROGRAM", PROGRAM_TYPE);
-                gatdParams.put("DATA", DATA);
-                StringEntity entity = new StringEntity(gatdParams.toString());
-                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));//"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a"
-                client.post(getBaseContext(),"http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() {
-                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-                });
-            } catch (Exception e) {}
+//            if (cur_settings.getInt("time_agreement",false))
+                try {
+                    JSONObject gatdParams = new JSONObject();
+                    gatdParams.put("DEVICE ID", devAddress);
+                    gatdParams.put("NAME", devName);
+                    gatdParams.put("RSSI", rssi);
+                    gatdParams.put("DESTINATION", IP);
+                    gatdParams.put("TRANSPARENT",TRANSPARENT);
+                    gatdParams.put("RATE", RATE);
+                    gatdParams.put("LEVEL", LEVEL);
+                    if (TRANSPARENT.equals("0")) {
+                        System.out.println(cur_settings.getBoolean("REALtime_agreement",false));
+                        gatdParams.put("SENSORS", SENSORS);
+                        if (SENSORS.charAt(3)=='1' && cur_settings.getBoolean("time_agreement",false))
+                            gatdParams.put("GWTIME", String.valueOf(System.currentTimeMillis()));
+                    }
+                    gatdParams.put("PROGRAM", PROGRAM_TYPE);
+                    gatdParams.put("DATA", DATA);
+                    StringEntity entity = new StringEntity(gatdParams.toString());
+                    entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                    client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                        @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                        @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+                    });
+                    client.post(getBaseContext(),"http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() {
+                        @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                        @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+                    });
+
+                } catch (Exception e) {}
 
         }
     }

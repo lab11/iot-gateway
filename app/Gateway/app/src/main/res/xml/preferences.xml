@@ -48,9 +48,9 @@
             android:summary="%s"
             android:title="Program Name" />
     </PreferenceCategory>
-    <PreferenceCategory android:title="Supported Data Rates (Seconds)">
+    <PreferenceCategory android:title="Supported Data Rates">
         <com.robobunny.SeekBarPreference
-            android:title="Repeat Rate (Zero Is Once)"
+            android:title="Data Rate Allowed"
             android:defaultValue="7"
             android:key="data_rate"
             android:max="7"/>

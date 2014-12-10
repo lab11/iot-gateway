@@ -1,20 +1,41 @@
 <html>
   <head>
+    <title>IOT Gateway Log</title>
     <script src="http://inductor.eecs.umich.edu/bower_components/socket.io-client/dist/socket.io.min.js"></script>
     <script src="http://inductor.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.js"><</script>
+    <link href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.css" rel="stylesheet" type="text/css">
   </head>
   <body>
-    Received by GATD:<br />
-    <div style="font-size:medium; text-align:center; overflow:hidden;"></div>
+    <table id="table" style="font-family:'Helvetica Neue'; font-weight:200; font-size:small">
+        <thead>
+        <tr>
+            <th data-field="time">TIMESTAMP</th>
+            <th data-field="DEVICE ID">PERIPHERAL ID</th>
+            <th data-field="NAME">NAME</th>
+            <th data-field="RSSI">RSSI</th>
+            <th data-field="DESTINATION">DESTINATION IP</th>
+            <th data-field="TRANSPARENT">TFLG</th>
+            <th data-field="RATE">RATE</th>
+            <th data-field="LEVEL">LEVEL</th>
+            <th data-field="PROGRAM">PROG</th>
+            <th data-field="DATA">DATA</th>
+            <th data-field="SENSORS">SENSORS</th>
+            <th data-field="GWTIME">GW TIME</th>
+        </tr>
+        </thead>
+    </table>
     <script>
+    data = [];
+    $(function () { $('#table').bootstrapTable({ data: data }); });
     onload = function() {
-      document.querySelector('div').style.height = window.innerHeight
       socket = io.connect('inductor.eecs.umich.edu:8082/stream');
-      socket.on('connect', function (data) { socket.emit('query', {'profile_id':'SgYPCHTR5a','time': 30*60*1000 } ); });
-      socket.on('data', function (data) { 
-        s="NAME: " + data['device'] + ", ADDRESS:" + data['address'] + ", RSSI:" + data['rssi'] + ", ADV:" + data['advertisement'];
-        console.log(data['advertisement']);
-        document.querySelector('div').innerHTML = s + '<br />' + document.querySelector('div').innerHTML;
+      socket.on('connect', function (data) { socket.emit('query', {'profile_id':'SgYPCHTR5a','time': 2*60*1000 } ); });
+      socket.on('data', function (dat) {
+        dat.time=new Date(dat.time).toLocaleTimeString();
+        data.unshift(dat);
+        $('#table').bootstrapTable('load', data );
+        console.log(dat);
       });
     }
     </script>

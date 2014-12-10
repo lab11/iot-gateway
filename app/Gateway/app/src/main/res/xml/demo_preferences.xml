@@ -14,14 +14,14 @@
             android:key="peripheral_transparent_req"
             android:title="Transparent" />
         <com.robobunny.SeekBarPreference
-            android:title="Requested Data Rates (Seconds)"
+            android:title="Requested Data Rates"
             android:defaultValue="0"
             android:key="data_rate"
             android:max="7"/>
     </PreferenceCategory>
     <PreferenceCategory android:title="Reliability">
         <com.robobunny.SeekBarPreference
-            android:title="Program Level (See Spec for Def)"
+            android:title="Reliability Level (See Spec for Def)"
             android:defaultValue="0"
             android:key="level_rate"
             android:max="15"/>

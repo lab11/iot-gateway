@@ -203,7 +203,7 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         String dataTEXT = cur_settings.getString("data_text", "FF");
 
         rateTEXT = Integer.toString(Integer.valueOf(rateTEXT.replaceAll("\\s+","")), 2);
-        if (rateTEXT.length() != 3) {
+        while (rateTEXT.length() != 3) {
             rateTEXT = "0" + rateTEXT;
         }
         String first_nib = transparentBTN + rateTEXT;
