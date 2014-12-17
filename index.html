@@ -1,8 +1,8 @@
 <html>
   <head>
     <title>IOT Gateway Log</title>
-    <script src="http://inductor.eecs.umich.edu/bower_components/socket.io-client/dist/socket.io.min.js"></script>
-    <script src="http://inductor.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="http://gatd.eecs.umich.edu/bower_components/socket.io-client/dist/socket.io.min.js"></script>
+    <script src="http://gatd.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.js"><</script>
     <link href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.css" rel="stylesheet" type="text/css">
   </head>
@@ -30,7 +30,7 @@
     data = [];
     $(function () { $('#table').bootstrapTable({ data: data }); });
     onload = function() {
-      socket = io.connect('inductor.eecs.umich.edu:8082/stream');
+      socket = io.connect('gatd.eecs.umich.edu:8082/stream');
       socket.on('connect', function (data) { socket.emit('query', {'profile_id':'SgYPCHTR5a','time': 2*60*1000 } ); });
       socket.on('data', function (dat) {
         dat.time=new Date(dat.time).toLocaleTimeString();

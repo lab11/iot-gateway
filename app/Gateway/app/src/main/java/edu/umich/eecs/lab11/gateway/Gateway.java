@@ -309,7 +309,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     gatdParams.put("DATA", DATA);
                     StringEntity entity = new StringEntity(gatdParams.toString());
                     entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                    client.post(getBaseContext(),"http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                    client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                         @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                         @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                     });
@@ -472,7 +472,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 send_program();
             }
 
-            client.post(getBaseContext(), "http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+            client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                 @Override
                 public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
                 }
@@ -895,7 +895,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             StringEntity entity = new StringEntity(programJSONParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
 
-            client.post(getBaseContext(), /*programURL.get(program_index)*/ "http://inductor.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+            client.post(getBaseContext(), /*programURL.get(program_index)*/ "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                 @Override
                 public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
                 }
