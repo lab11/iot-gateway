@@ -13,6 +13,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
+import android.location.Location;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -83,6 +84,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     private final static String INTENT_EXTRA_SENSOR_VAL = "SENSOR_VAL";
 
+    private LocationManager locationManager;
+
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
     private Handler mHandler;
@@ -147,7 +150,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         program_url_to_send = "";
 
         getSystemService(Context.LOCATION_SERVICE);
-
+        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         mHandler = new Handler();
 
         // Use this check to determine whether BLE is supported on the device.  Then you can
@@ -295,8 +298,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     gatdParams.put("RATE", RATE);
                     gatdParams.put("LEVEL", LEVEL);
                     if (TRANSPARENT.equals("0")) {
-                        System.out.println(cur_settings.getBoolean("REALtime_agreement",false));
                         gatdParams.put("SENSORS", SENSORS);
+                        if (SENSORS.charAt(0)=='1' && cur_settings.getBoolean("gps_agreement",false)) {
+                            Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                            gatdParams.put("LOCATION",loc.getLatitude()+","+loc.getLongitude()+","+loc.getAltitude()); }
                         if (SENSORS.charAt(3)=='1' && cur_settings.getBoolean("time_agreement",false))
                             gatdParams.put("GWTIME", String.valueOf(System.currentTimeMillis()));
                     }
