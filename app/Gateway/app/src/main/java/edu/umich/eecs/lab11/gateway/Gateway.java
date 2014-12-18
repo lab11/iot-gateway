@@ -296,9 +296,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
             Log.w("PARSE_DATA", DATA);
 
-//            if (cur_settings.getInt("time_agreement",false))
+            //          debug cloud
                 try {
                     JSONObject gatdParams = new JSONObject();
+                    gatdParams.put("TYPE", "debug");
                     gatdParams.put("DEVICE ID", devAddress);
                     gatdParams.put("NAME", devName);
                     gatdParams.put("RSSI", rssi);
@@ -308,11 +309,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     gatdParams.put("LEVEL", LEVEL);
                     if (TRANSPARENT.equals("0")) {
                         gatdParams.put("SENSORS", SENSORS);
-                        if (SENSORS.charAt(0)=='1' && cur_settings.getBoolean("gps_agreement",false)) {
-                            Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                            gatdParams.put("LOCATION",loc.getLatitude()+","+loc.getLongitude()+","+loc.getAltitude()); }
-                        if (SENSORS.charAt(3)=='1' && cur_settings.getBoolean("time_agreement",false))
-                            gatdParams.put("GWTIME", String.valueOf(System.currentTimeMillis()));
                     }
                     gatdParams.put("PROGRAM", PROGRAM_TYPE);
                     gatdParams.put("DATA", DATA);
@@ -322,12 +318,53 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                         @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                         @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                     });
-                    client.post(getBaseContext(),"http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() {
-                        @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                        @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-                    });
-
+                    System.out.println("blah"+gatdParams);
                 } catch (Exception e) {}
+
+            // data cloud
+            try {
+                JSONObject gatdParams = new JSONObject();
+                gatdParams.put("TYPE", "data");
+                gatdParams.put("DEVICE ID", devAddress);
+                gatdParams.put("NAME", devName);
+                if (TRANSPARENT.equals("0")) {
+                    if (SENSORS.charAt(0)=='1' && cur_settings.getBoolean("gps_agreement",false)) {
+                        Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                        gatdParams.put("LOCATION",loc.getLatitude()+","+loc.getLongitude()+","+loc.getAltitude()); }
+                    if (SENSORS.charAt(3)=='1' && cur_settings.getBoolean("time_agreement",false))
+                        gatdParams.put("GWTIME", String.valueOf(System.currentTimeMillis()));
+                    if (SENSORS.charAt(5)=='1' && cur_settings.getBoolean("user_input_agreement",false))
+                        gatdParams.put("TEXT", cur_settings.getString("program_text","")); // temporarily having it take program text
+                }
+                gatdParams.put("DATA", DATA);
+                StringEntity entity = new StringEntity(gatdParams.toString());
+                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+                });
+                System.out.println("blah"+gatdParams);
+            } catch (Exception e) {}
+
+            // incentive cloud
+            try {
+                JSONObject gatdParams = new JSONObject();
+                gatdParams.put("TYPE", "incentive");
+                gatdParams.put("DEVICE ID", devAddress);
+                gatdParams.put("NAME", devName);
+                gatdParams.put("PROGRAM_IP", IP);
+                gatdParams.put("PROGRAM_NAME", cur_settings.getString("program_text",""));
+                gatdParams.put("PROGRAM_PAY", cur_settings.getInt("min_pay_rate",-1));
+                gatdParams.put("TOTAL_SIZE", a.getBytes().length);
+                gatdParams.put("THIS_SIZE", a.getBytes().length);
+                StringEntity entity = new StringEntity(gatdParams.toString());
+                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+                });
+                System.out.println("blah"+gatdParams);
+            } catch (Exception e) {}
 
         }
     }
