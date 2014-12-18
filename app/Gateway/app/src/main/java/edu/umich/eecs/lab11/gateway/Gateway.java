@@ -300,7 +300,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 try {
                     JSONObject gatdParams = new JSONObject();
                     gatdParams.put("TYPE", "debug");
-                    gatdParams.put("DEVICE ID", devAddress);
+                    gatdParams.put("DEVICE_ID", devAddress);
                     gatdParams.put("NAME", devName);
                     gatdParams.put("RSSI", rssi);
                     gatdParams.put("DESTINATION", IP);
@@ -318,14 +318,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                         @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                         @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                     });
-                    System.out.println("blah"+gatdParams);
                 } catch (Exception e) {}
 
             // data cloud
             try {
                 JSONObject gatdParams = new JSONObject();
                 gatdParams.put("TYPE", "data");
-                gatdParams.put("DEVICE ID", devAddress);
+                gatdParams.put("DEVICE_ID", devAddress);
                 gatdParams.put("NAME", devName);
                 if (TRANSPARENT.equals("0")) {
                     if (SENSORS.charAt(0)=='1' && cur_settings.getBoolean("gps_agreement",false)) {
@@ -343,14 +342,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                     @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                 });
-                System.out.println("blah"+gatdParams);
             } catch (Exception e) {}
 
             // incentive cloud
             try {
                 JSONObject gatdParams = new JSONObject();
                 gatdParams.put("TYPE", "incentive");
-                gatdParams.put("DEVICE ID", devAddress);
+                gatdParams.put("DEVICE_ID", devAddress);
                 gatdParams.put("NAME", devName);
                 gatdParams.put("PROGRAM_IP", IP);
                 gatdParams.put("PROGRAM_NAME", cur_settings.getString("program_text",""));
@@ -363,7 +361,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                     @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                 });
-                System.out.println("blah"+gatdParams);
             } catch (Exception e) {}
 
         }

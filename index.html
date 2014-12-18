@@ -20,7 +20,7 @@
                 <thead>
                     <tr>
                         <th data-field="time">TIMESTAMP</th>
-                        <th data-field="DEVICE ID">PERIPHERAL ID</th>
+                        <th data-field="DEVICE_ID">PERIPHERAL ID</th>
                         <th data-field="RSSI">RSSI</th>
                         <th data-field="DESTINATION">DESTINATION IP</th>
                         <th data-field="TRANSPARENT">TFLG</th>
@@ -29,8 +29,6 @@
                         <th data-field="PROGRAM">PROG</th>
                         <th data-field="DATA">DATA</th>
                         <th data-field="SENSORS">SENSORS</th>
-                        <th data-field="GWTIME">GW TIME</th>
-                        <th data-field="LOCATION">LOCATION</th>
                     </tr>
                 </thead>
             </table>
@@ -55,12 +53,12 @@
                 <thead>
                     <tr>
                         <th data-field="time">TIMESTAMP</th>
-                        <th data-field="DEVICE ID">PERIPHERAL ID</th>
-                        <th data-field="PROGRAM IP">PROGRAM IP</th>
-                        <th data-field="PROGRAM NAME">PROGRAM NAME</th>
-                        <th data-field="PROGRAM PAY">RATE</th>
-                        <th data-field="TOATL SIZE">LEVEL</th>
-                        <th data-field="THIS SIZE">PROG</th>
+                        <th data-field="DEVICE_ID">PERIPHERAL ID</th>
+                        <th data-field="PROGRAM_IP">PROGRAM IP</th>
+                        <th data-field="PROGRAM_NAME">PROGRAM NAME</th>
+                        <th data-field="PROGRAM_PAY">PROGRAM PAY</th>
+                        <th data-field="TOTAL_SIZE">TOTAL SIZE</th>
+                        <th data-field="THIS_SIZE">THIS SIZE</th>
                     </tr>
                 </thead>
             </table>
@@ -81,11 +79,11 @@
        } else if (dat.TYPE == "data") {
             receive_data.unshift(dat);
             $('#receive-table').bootstrapTable('load', receive_data );
+        console.log(dat);
        } else if (dat.TYPE == "incentive") {
             incentive_data.unshift(dat);
             $('#incentive-table').bootstrapTable('load', incentive_data );
        }
-        console.log(dat);
       });
     }
     </script>
