@@ -321,7 +321,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             try {
                 JSONObject gatdParams = new JSONObject();
                 gatdParams.put("TYPE", "debug");
-                gatdParams.put("DEVICE ID", devAddress);
+                gatdParams.put("DEVICE_ID", devAddress);
                 gatdParams.put("NAME", devName);
                 gatdParams.put("RSSI", rssi);
                 gatdParams.put("DESTINATION", IP);
@@ -472,7 +472,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             JSONObject gatdDataParams = new JSONObject();
             gatdDataParams.put("TYPE", "data");
             if (cur_peripheral.TRANSPARENT) {
-                gatdDataParams.put("DEVICE ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
+                gatdDataParams.put("DEVICE_ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
                 gatdDataParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
                 gatdDataParams.put("DATA", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]);
             } else {
@@ -482,7 +482,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     //Log.i("NOAH DATA TO PEEK", key_val[0]);
                     //Log.i("NOAH DATA TO PEEK", key_val[1]);
                 }
-                gatdDataParams.put("DEVICE ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
+                gatdDataParams.put("DEVICE_ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
                 gatdDataParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
                 gatdDataParams.put("DATA", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()]);
             }
@@ -973,10 +973,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             gatdProgramParams.put("TOTAL_SIZE", programSizesTotal.get(program_index));
             gatdProgramParams.put("THIS_SIZE", program_cur_packet_size);
             if (cur_peripheral.TRANSPARENT) {
-                gatdProgramParams.put("DEVICE ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
+                gatdProgramParams.put("DEVICE_ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
                 gatdProgramParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
             } else {
-                gatdProgramParams.put("DEVICE ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
+                gatdProgramParams.put("DEVICE_ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
                 gatdProgramParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
             }
             StringEntity entity = new StringEntity(gatdProgramParams.toString());
