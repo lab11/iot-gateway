@@ -1,5 +1,7 @@
 package edu.umich.eecs.lab11.gateway;
 
+import java.util.ArrayList;
+
 /**
  * Created by nklugman on 11/19/14.
  */
@@ -7,6 +9,7 @@ public class Peripheral {
 
     public String[] PEEK_FLAGS;
     public String[] TRANSPARENT_FLAGS;
+    public ArrayList<String> DATA_TO_PEEK = new ArrayList<String>();
     public boolean TRANSPARENT;
 
     public enum TRANSPARENT_ENUM {
@@ -32,9 +35,9 @@ public class Peripheral {
     }
 
     public void empty() {
-
         PEEK_FLAGS = new String[50];
         TRANSPARENT_FLAGS = new String[50];
+        DATA_TO_PEEK.clear();
     }
 
     public Peripheral() {

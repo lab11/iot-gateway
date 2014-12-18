@@ -62,7 +62,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private ArrayList<String> programURL = new ArrayList<String>();
     private ArrayList<Integer> programSizesTotal = new ArrayList<Integer>();
 
-    private ArrayList<String> dataToPeek = new ArrayList<String>();
 
     private Peripheral cur_peripheral;
 
@@ -142,8 +141,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         programCredentials.add(true);
         programMaxPay.add(8);
         programMaxPay.add(15);
-        programURL.add("www.google.com");
-        programURL.add("www.facebook.com");
+        programURL.add("www.payme.com/api");
+        programURL.add("www.youpay.com/iot");
+        programSizesTotal.add(0);
+        programSizesTotal.add(0);
 
         program_name_to_send = "";
         program_pay_to_send = "";
@@ -228,17 +229,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             String PROGRAM_TYPE = final_binary_str.substring(80, 84);
             String DATA = final_binary_str.substring(84);
 
-        /*
-        Log.w("PARSE_FINAL_STR", final_str);
-        Log.w("PARSE_IP", IP);
-        Log.w("PARSE_TRANSPARENT", TRANSPARENT);
-        Log.w("PARSE_RATE", RATE);
-        Log.w("PARSE_LEVEL", LEVEL);
-        Log.w("PARSE_SENSORS", SENSORS);
-        Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
-        Log.w("PARSE_DATA", DATA);
-        */
-
 
             if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
                 Log.w("POINT", "TRANSPARENT FORWARD");
@@ -296,45 +286,52 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
             Log.w("PARSE_DATA", DATA);
 
-            //          debug cloud
-                try {
-                    JSONObject gatdParams = new JSONObject();
-                    gatdParams.put("TYPE", "debug");
-                    gatdParams.put("DEVICE_ID", devAddress);
-                    gatdParams.put("NAME", devName);
-                    gatdParams.put("RSSI", rssi);
-                    gatdParams.put("DESTINATION", IP);
-                    gatdParams.put("TRANSPARENT",TRANSPARENT);
-                    gatdParams.put("RATE", RATE);
-                    gatdParams.put("LEVEL", LEVEL);
-                    if (TRANSPARENT.equals("0")) {
-                        gatdParams.put("SENSORS", SENSORS);
-                    }
-                    gatdParams.put("PROGRAM", PROGRAM_TYPE);
-                    gatdParams.put("DATA", DATA);
-                    StringEntity entity = new StringEntity(gatdParams.toString());
-                    entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                    client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                        @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                        @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-                    });
-                } catch (Exception e) {}
+            if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
+                Log.w("POINT", "TRANSPARENT FORWARD");
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.TRANSPARENT = true;
 
-            // data cloud
+            } else {
+                Log.w("POINT", "PEEK FORWARD");
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambiant.ordinal()] = String.valueOf(SENSORS.charAt(7));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()] = devName;
+                cur_peripheral.TRANSPARENT = false;
+            }
+
+            //          debug cloud
             try {
                 JSONObject gatdParams = new JSONObject();
-                gatdParams.put("TYPE", "data");
-                gatdParams.put("DEVICE_ID", devAddress);
+                gatdParams.put("TYPE", "debug");
+                gatdParams.put("DEVICE ID", devAddress);
                 gatdParams.put("NAME", devName);
+                gatdParams.put("RSSI", rssi);
+                gatdParams.put("DESTINATION", IP);
+                gatdParams.put("TRANSPARENT",TRANSPARENT);
+                gatdParams.put("RATE", RATE);
+                gatdParams.put("LEVEL", LEVEL);
                 if (TRANSPARENT.equals("0")) {
-                    if (SENSORS.charAt(0)=='1' && cur_settings.getBoolean("gps_agreement",false)) {
-                        Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                        gatdParams.put("LOCATION",loc.getLatitude()+","+loc.getLongitude()+","+loc.getAltitude()); }
-                    if (SENSORS.charAt(3)=='1' && cur_settings.getBoolean("time_agreement",false))
-                        gatdParams.put("GWTIME", String.valueOf(System.currentTimeMillis()));
-                    if (SENSORS.charAt(5)=='1' && cur_settings.getBoolean("user_input_agreement",false))
-                        gatdParams.put("TEXT", cur_settings.getString("program_text","")); // temporarily having it take program text
+                    gatdParams.put("SENSORS", SENSORS);
                 }
+                gatdParams.put("PROGRAM", PROGRAM_TYPE);
                 gatdParams.put("DATA", DATA);
                 StringEntity entity = new StringEntity(gatdParams.toString());
                 entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
@@ -342,26 +339,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                     @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
                 });
+                System.out.println("blah"+gatdParams);
             } catch (Exception e) {}
 
-            // incentive cloud
-            try {
-                JSONObject gatdParams = new JSONObject();
-                gatdParams.put("TYPE", "incentive");
-                gatdParams.put("DEVICE_ID", devAddress);
-                gatdParams.put("NAME", devName);
-                gatdParams.put("PROGRAM_IP", IP);
-                gatdParams.put("PROGRAM_NAME", cur_settings.getString("program_text",""));
-                gatdParams.put("PROGRAM_PAY", cur_settings.getInt("min_pay_rate",-1));
-                gatdParams.put("TOTAL_SIZE", a.getBytes().length);
-                gatdParams.put("THIS_SIZE", a.getBytes().length);
-                StringEntity entity = new StringEntity(gatdParams.toString());
-                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-                });
-            } catch (Exception e) {}
+            run_forward(TRANSPARENT);
+
+
 
         }
     }
@@ -392,12 +375,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     public boolean switch_grant(Integer peripheral_program_level) {
         Log.w(top, "switch_grant()");
 
-        Integer user_program_level = cur_settings.getInt("level_rate", 15);
         Integer user_pay_floor = cur_settings.getInt("min_pay_rate", 0);
 
         Log.w("SWITCH_GRANT_periph_level", peripheral_program_level.toString());
-        Log.w("SWITCH_GRANT_user_level", user_program_level.toString());
-        Log.w("SWITCH_GRANT_user_pay_level", user_pay_floor.toString());
+        Log.w("SWITCH_GRANT_user_pay_floor", user_pay_floor.toString());
 
 
         if (peripheral_program_level == 0) { // no program supported by peripheral
@@ -439,7 +420,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         String program_name = cur_settings.getString("program_text", "PayMe").trim();
         Log.w("program_debug", program_name);
         Integer program_index = programValid.lastIndexOf(program_name);
-        Log.w("program_debug", program_index.toString());
+        //Log.w("program_debug", program_index.toString());
+        Log.w("program_debug_pay_level", String.valueOf(pay_level));
+        Log.w("program_debug_program_max_pay", String.valueOf(programMaxPay.get(program_index)));
+
         if (program_index != -1) {
             if (programCredentials.get(program_index)) {
                 if (pay_level <= programMaxPay.get(program_index)) {
@@ -468,6 +452,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w("POINT", "Program NAME NOT FOUND"); // peripheral can't pay
             return false;
         }
+        if (DEMO) {
+            Toast.makeText(this, "PROGRAM OK", Toast.LENGTH_SHORT).show();
+        }
+        Log.w("POINT", "Program OK");
         return true;
     }
 
@@ -478,6 +466,50 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     private void post() {
+
+        // data cloud
+        try {
+            JSONObject gatdDataParams = new JSONObject();
+            gatdDataParams.put("TYPE", "data");
+            if (cur_peripheral.TRANSPARENT) {
+                gatdDataParams.put("DEVICE ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
+                gatdDataParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
+                gatdDataParams.put("DATA", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]);
+            } else {
+                for (int i = 0; i < cur_peripheral.DATA_TO_PEEK.size(); i++) {
+                    String[] key_val = cur_peripheral.DATA_TO_PEEK.get(i).split(" ");
+                    gatdDataParams.put(key_val[0], key_val[1]);
+                    //Log.i("NOAH DATA TO PEEK", key_val[0]);
+                    //Log.i("NOAH DATA TO PEEK", key_val[1]);
+                }
+                gatdDataParams.put("DEVICE ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
+                gatdDataParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
+                gatdDataParams.put("DATA", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()]);
+            }
+            StringEntity entity = new StringEntity(gatdDataParams.toString());
+            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+            client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                @Override
+                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
+                }
+
+                @Override
+                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
+                }
+            });
+            Log.i("NOAH_POSTING_DATA: ", gatdDataParams.toString());
+
+            if (!program_name_to_send.equals("")) { //there is a program
+                Log.i("NOAH PROGRAM NAME ", program_name_to_send);
+                Integer program_index = programValid.lastIndexOf(program_name_to_send);
+                program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
+                Integer cur_total_size = programSizesTotal.get(program_index);
+                cur_total_size += program_cur_packet_size;
+                programSizesTotal.set(program_index, cur_total_size);
+                send_program();
+            }
+        } catch (Exception e) {}
+        /*
         try {
             //jsonParams.put("id",);
 
@@ -498,23 +530,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 //            final String id = adInfo.getId();
 
 
-            for (int i = 0; i < dataToPeek.size(); i++) {
-                String[] key_val = dataToPeek.get(i).split(" ");
-                jsonParams.put(key_val[0], key_val[1]);
-            }
+
 
             StringEntity entity = new StringEntity(jsonParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
 
 
-            if (!program_name_to_send.equals("")) { //there is a program
-                Integer program_index = programValid.lastIndexOf(program_name_to_send);
-                program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
-                Integer cur_total_size = programSizesTotal.get(program_index);
-                cur_total_size += program_cur_packet_size;
-                programSizesTotal.set(program_index, cur_total_size);
-                send_program();
-            }
+
 
             client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                 @Override
@@ -530,6 +552,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         } catch (Exception e) {
             e.printStackTrace();
         }
+        */
     }
 
     String mCurrentPhotoPath;
@@ -608,8 +631,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         // 3. adds req for sensor to the intent
         // 4. if hw doesn't exist, adds to failable_hw to be skipped or not with level
         // 5. if user doesn't grant, adds to sensor_access to be skipped or not with level
+
         for (int i = Peripheral.PEEK_ENUM.gps.ordinal(); i <= Peripheral.PEEK_ENUM.ambiant.ordinal(); i++) {
-            //Log.w("sensor_debug", cur_peripheral.PEEK_FLAGS[i]);
+            Log.w("sensor_debug", "TEST");
             if (cur_peripheral.PEEK_FLAGS[i].equals("1")) {
                 if (i == Peripheral.PEEK_ENUM.accel.ordinal()) {
                     if (cur_settings.getBoolean("accel_agreement", true)) {
@@ -631,7 +655,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                         Log.w("sensor_debug", "adding time to intent");
                         String key_val = "time ";
                         key_val += System.currentTimeMillis();
-                        dataToPeek.add(key_val);
+                        cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW TIME");
                         sensor_access += "time";
@@ -657,8 +681,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                         PackageManager packageManager = getApplicationContext().getPackageManager();
                         hasGPS = packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS);
                         if (hasGPS) {
-                            intent.putExtra(INTENT_SENSOR_GPS, INTENT_TRUE);
-                            intent_needed = true;
+                            Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                            String key_val = "LOCATION ";
+                            key_val += loc.getLatitude()+","+loc.getLongitude()+","+loc.getAltitude();
+                            cur_peripheral.DATA_TO_PEEK.add(key_val);
+                            //intent.putExtra(INTENT_SENSOR_GPS, INTENT_TRUE);
+                            //intent_needed = true;
                         } else {
                             Log.w("USER_AGREEMENT", "DOESNT SUPPORT gps");
                         }
@@ -764,6 +792,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public void do_popup_text() {
         Log.w(top, "do_popup_text");
+
+        mScanning = false;
+        paused = true;
+        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
 
         alert.setTitle("Peripheral Asked for Text");
@@ -776,16 +809,24 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 String value = input.getText().toString();
                 String key_val = "text ";
                 key_val += value;
-                dataToPeek.add(key_val);
+                cur_peripheral.DATA_TO_PEEK.add(key_val);
                 Log.w("sensor_debug", value);
+                mScanning = true;
+                paused = false;
+                mBluetoothAdapter.startLeScan(mLeScanCallback);
             }
         });
 
         alert.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int whichButton) {
+                mScanning = true;
+                paused = false;
+                mBluetoothAdapter.startLeScan(mLeScanCallback);
             }
         });
         alert.show();
+
+
     }
 
     private BroadcastReceiver mServiceMessageReceiver = new BroadcastReceiver() {
@@ -794,11 +835,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w(tag, intent.getStringExtra(INTENT_EXTRA_SENSOR_VAL));
         }
     };
-
-    public void forward_data() {
-        Log.w(top, "forward_data()");
-        check_ack();
-    }
 
     public void check_ack() {
         Log.w(top, "check_ack()");
@@ -820,11 +856,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public void schedule_ack() {
         Log.w(top, "schedule_ack()");
-    }
-
-    public void on_ack_callback() {
-        Log.w(top, "on_ack_callback()");
-        send_ack();
     }
 
     public void send_ack() {
@@ -930,9 +961,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     private void send_program() {
+        Log.w(top, "send_program()");
+        Log.i("NOAH_SENDING_PROGRAM", "send_program()");
         JSONObject gatdProgramParams = new JSONObject();
         Integer program_index = programValid.lastIndexOf(program_name_to_send);
         try {
+            gatdProgramParams.put("TYPE", "incentive");
             gatdProgramParams.put("PROGRAM_IP", program_url_to_send);
             gatdProgramParams.put("PROGRAM_NAME", program_name_to_send);
             gatdProgramParams.put("PROGRAM_PAY", program_pay_to_send);
@@ -941,36 +975,41 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             if (cur_peripheral.TRANSPARENT) {
                 gatdProgramParams.put("DEVICE ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
                 gatdProgramParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
-                gatdProgramParams.put("DESTINATION", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()]);
             } else {
                 gatdProgramParams.put("DEVICE ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
                 gatdProgramParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
-                gatdProgramParams.put("DESTINATION", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()]);
             }
             StringEntity entity = new StringEntity(gatdProgramParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-            client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() { //SHOULD THIS IP NOW BE program_url_to_send?
-                @Override
-                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
-                }
-
-                @Override
-                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
-                }
+            client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
             });
-            client.post(getBaseContext(), "http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() { //SHOULD THIS IP NOW BE program_url_to_send?
-                @Override
-                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
-                }
+            System.out.println("blah" + gatdProgramParams);
+        } catch (Exception e) {}
+        Log.i("NOAH_POSTING_PROGRAM: ", gatdProgramParams.toString());
 
-                @Override
-                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
-                }
+
+        /*
+        // incentive cloud
+        try {
+            JSONObject gatdParams = new JSONObject();
+            gatdParams.put("TYPE", "incentive");
+            gatdParams.put("DEVICE ID", devAddress);
+            gatdParams.put("NAME", devName);
+            gatdParams.put("PROGRAM_IP", IP);
+            gatdParams.put("PROGRAM_NAME", cur_settings.getString("program_text",""));
+            gatdParams.put("PROGRAM_PAY", cur_settings.getInt("min_pay_rate",-1));
+            gatdParams.put("TOTAL_SIZE", a.getBytes().length);
+            gatdParams.put("THIS_SIZE", a.getBytes().length);
+            StringEntity entity = new StringEntity(gatdParams.toString());
+            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+            client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
             });
-
-        } catch (Exception e) {
-        }
-
+            System.out.println("blah"+gatdParams);
+        } catch (Exception e) {}
         /*
         try {
             Integer program_index = programValid.lastIndexOf(program_name_to_send);
@@ -1075,8 +1114,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
             byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
             Log.w("TYPE", String.valueOf(scanRecord[index]));
-if (type==22)
-            parse(device.getName(),device.getAddress(),rssi, getHexString(data));
+            if (type==22)
+                parse(device.getName(),device.getAddress(),rssi, getHexString(data));
 //Advance
             index += length;
         }
