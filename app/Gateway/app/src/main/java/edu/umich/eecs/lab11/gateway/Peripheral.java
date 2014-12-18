@@ -7,10 +7,11 @@ public class Peripheral {
 
     public String[] PEEK_FLAGS;
     public String[] TRANSPARENT_FLAGS;
+    public boolean TRANSPARENT;
 
     public enum TRANSPARENT_ENUM {
-        ip_address, transparent_flag, rate, program_type,
-        data_blob
+        ip_address, transparent_flag, rate, program_type, level,
+        data_blob, dev_address, dev_name
     }
 
     public enum LEVEL_ENUM {
@@ -23,7 +24,7 @@ public class Peripheral {
         ip_address, transparent_flag, rate,
         level, gps, temp, humidity, time, accel, text, pic, ambiant,
         program_need, program_type,
-        data_blob
+        data_blob, dev_address, dev_name
     }
 
     public enum SENSOR_ENUM {
@@ -42,6 +43,7 @@ public class Peripheral {
         //ADV_FLAGS = new int[2];
         PEEK_FLAGS = new String[50];
         TRANSPARENT_FLAGS = new String[50];
+        TRANSPARENT = false;
     }
 
 }

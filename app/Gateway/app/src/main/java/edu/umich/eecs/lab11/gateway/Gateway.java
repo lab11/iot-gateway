@@ -239,12 +239,18 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         Log.w("PARSE_DATA", DATA);
         */
 
+
             if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
                 Log.w("POINT", "TRANSPARENT FORWARD");
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.TRANSPARENT = true;
+
             } else {
                 Log.w("POINT", "PEEK FORWARD");
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
@@ -260,6 +266,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambiant.ordinal()] = String.valueOf(SENSORS.charAt(7));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()] = devName;
+                cur_peripheral.TRANSPARENT = false;
             }
             run_forward(TRANSPARENT);
         } else {
@@ -403,6 +412,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     program_name_to_send = program_name;
                     program_pay_to_send = pay_level.toString();
                     program_url_to_send = programURL.get(program_index);
+
                 } else {
                     if (DEMO) {
                         Toast.makeText(this, "PROGRAM CAN'T PAY PAY LEVEL! Stopping", Toast.LENGTH_SHORT).show();
@@ -886,6 +896,48 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     private void send_program() {
+        JSONObject gatdProgramParams = new JSONObject();
+        Integer program_index = programValid.lastIndexOf(program_name_to_send);
+        try {
+            gatdProgramParams.put("PROGRAM_IP", program_url_to_send);
+            gatdProgramParams.put("PROGRAM_NAME", program_name_to_send);
+            gatdProgramParams.put("PROGRAM_PAY", program_pay_to_send);
+            gatdProgramParams.put("TOTAL_SIZE", programSizesTotal.get(program_index));
+            gatdProgramParams.put("THIS_SIZE", program_cur_packet_size);
+            if (cur_peripheral.TRANSPARENT) {
+                gatdProgramParams.put("DEVICE ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
+                gatdProgramParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
+                gatdProgramParams.put("DESTINATION", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()]);
+            } else {
+                gatdProgramParams.put("DEVICE ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
+                gatdProgramParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
+                gatdProgramParams.put("DESTINATION", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()]);
+            }
+            StringEntity entity = new StringEntity(gatdProgramParams.toString());
+            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+            client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() { //SHOULD THIS IP NOW BE program_url_to_send?
+                @Override
+                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
+                }
+
+                @Override
+                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
+                }
+            });
+            client.post(getBaseContext(), "http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() { //SHOULD THIS IP NOW BE program_url_to_send?
+                @Override
+                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
+                }
+
+                @Override
+                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
+                }
+            });
+
+        } catch (Exception e) {
+        }
+
+        /*
         try {
             Integer program_index = programValid.lastIndexOf(program_name_to_send);
             programJSONParams.put("program_name", program_name_to_send);
@@ -895,7 +947,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             StringEntity entity = new StringEntity(programJSONParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
 
-            client.post(getBaseContext(), /*programURL.get(program_index)*/ "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+            client.post(getBaseContext(), programURL.get(program_index) "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                 @Override
                 public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
                 }
@@ -907,6 +959,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         } catch (Exception e) {
             e.printStackTrace();
         }
+        */
     }
 
 
