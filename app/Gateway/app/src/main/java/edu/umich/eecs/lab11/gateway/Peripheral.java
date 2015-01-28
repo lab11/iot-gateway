@@ -25,13 +25,13 @@ public class Peripheral {
 
     public enum PEEK_ENUM {
         ip_address, transparent_flag, rate,
-        level, gps, temp, humidity, time, accel, text, pic, ambiant,
+        level, gps, temp, humidity, time, accel, text, pic, ambient,
         program_need, program_type,
         data_blob, dev_address, dev_name
     }
 
     public enum SENSOR_ENUM {
-        gps, temp, humidity, time, accel, text, pic, ambiant
+        gps, temp, humidity, time, accel, text, pic, ambient
     }
 
     public void empty() {

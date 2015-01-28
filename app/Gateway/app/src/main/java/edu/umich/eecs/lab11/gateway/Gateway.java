@@ -78,7 +78,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private final static String INTENT_SENSOR_ACCEL = "ACCEL";
     private final static String INTENT_SENSOR_TEMP = "TEMP";
     private final static String INTENT_SENSOR_GPS = "GPS";
-    private final static String INTENT_SENSOR_AMBIANT = "AMBIANT";
+    private final static String INTENT_SENSOR_AMBIENT = "AMBIENT";
     private final static String INTENT_SENSOR_HUMIDITY = "HUMIDITY";
 
     private final static String INTENT_EXTRA_SENSOR_VAL = "SENSOR_VAL";
@@ -253,7 +253,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambiant.ordinal()] = String.valueOf(SENSORS.charAt(7));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
@@ -309,7 +309,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambiant.ordinal()] = String.valueOf(SENSORS.charAt(7));
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
@@ -382,7 +382,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
 
         if (peripheral_program_level == 0) { // no program supported by peripheral
-            if (user_pay_floor == 0) { // user does not want monitary program
+            if (user_pay_floor == 0) { // user does not want monetary program
                 schedule();
             } else {
                 if (DEMO) {
@@ -392,8 +392,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 return false;
             }
         } else if (peripheral_program_level == 15) { // every program supported by peripheral
-            if (user_pay_floor != 0) { // user wants monitary program
-                if (!do_monitary_program(peripheral_program_level))
+            if (user_pay_floor != 0) { // user wants monetary program
+                if (!do_monetary_program(peripheral_program_level))
                     return false; // peripheral can pay... max that sucker out
                 schedule();
             } else {
@@ -401,7 +401,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             }
         } else {  // some programs supported by peripheral
             if (peripheral_program_level >= user_pay_floor) { // the peripheral can support up to a certain amount of pay... user accepts
-                if (!do_monitary_program(peripheral_program_level))
+                if (!do_monetary_program(peripheral_program_level))
                     return false; //pay as much as the peripheral wants
                 schedule();
             } else {
@@ -415,8 +415,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         return true;
     }
 
-    private boolean do_monitary_program(Integer pay_level) {
-        Log.w(top, "do_monitary_program(Integer pay_level)");
+    private boolean do_monetary_program(Integer pay_level) {
+        Log.w(top, "do_monetary_program(Integer pay_level)");
         String program_name = cur_settings.getString("program_text", "PayMe").trim();
         Log.w("program_debug", program_name);
         Integer program_index = programValid.lastIndexOf(program_name);
@@ -611,7 +611,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         Intent intent = new Intent(this, GatewayService.class);
 
         intent.putExtra(INTENT_SENSOR_ACCEL, INTENT_FALSE);
-        intent.putExtra(INTENT_SENSOR_AMBIANT, INTENT_FALSE);
+        intent.putExtra(INTENT_SENSOR_AMBIENT, INTENT_FALSE);
         intent.putExtra(INTENT_SENSOR_GPS, INTENT_FALSE);
         intent.putExtra(INTENT_SENSOR_HUMIDITY, INTENT_FALSE);
         intent.putExtra(INTENT_SENSOR_TEMP, INTENT_FALSE);
@@ -632,7 +632,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         // 4. if hw doesn't exist, adds to failable_hw to be skipped or not with level
         // 5. if user doesn't grant, adds to sensor_access to be skipped or not with level
 
-        for (int i = Peripheral.PEEK_ENUM.gps.ordinal(); i <= Peripheral.PEEK_ENUM.ambiant.ordinal(); i++) {
+        for (int i = Peripheral.PEEK_ENUM.gps.ordinal(); i <= Peripheral.PEEK_ENUM.ambient.ordinal(); i++) {
             Log.w("sensor_debug", "TEST");
             if (cur_peripheral.PEEK_FLAGS[i].equals("1")) {
                 if (i == Peripheral.PEEK_ENUM.accel.ordinal()) {
@@ -723,19 +723,19 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW input");
                         sensor_access += "input";
                     }
-                } else if (i == Peripheral.PEEK_ENUM.ambiant.ordinal()) {
+                } else if (i == Peripheral.PEEK_ENUM.ambient.ordinal()) {
                     if (cur_settings.getBoolean("ambient_agreement", true)) {
                         if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null) {
-                            Log.w("sensor_debug", "adding ambiant to intent");
-                            intent.putExtra(INTENT_SENSOR_AMBIANT, INTENT_TRUE);
+                            Log.w("sensor_debug", "adding ambient to intent");
+                            intent.putExtra(INTENT_SENSOR_AMBIENT, INTENT_TRUE);
                             intent_needed = true;
                         } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT ambiant");
-                            failable_hw += "ambiant";
+                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT ambient");
+                            failable_hw += "ambient";
                         }
                     } else {
-                        Log.w("USER_AGREEMENT", "DOESNT ALLOW ambiant");
-                        sensor_access += "ambiant";
+                        Log.w("USER_AGREEMENT", "DOESNT ALLOW ambient");
+                        sensor_access += "ambient";
                     }
                 }
             }

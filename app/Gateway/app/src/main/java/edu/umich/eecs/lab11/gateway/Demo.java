@@ -105,7 +105,7 @@ public class Demo extends PreferenceActivity {
         String accelBTN = boolToStr(cur_settings.getBoolean("peripheral_accel_req", true));
         String textBTN = boolToStr(cur_settings.getBoolean("peripheral_text_req", true));
         String userPicBTN = boolToStr(cur_settings.getBoolean("peripheral_pic_req", true));
-        String ambiantBTN = boolToStr(cur_settings.getBoolean("peripheral_ambient_req", true));
+        String ambientBTN = boolToStr(cur_settings.getBoolean("peripheral_ambient_req", true));
         String programTEXT = String.valueOf(cur_settings.getInt("incentive_rate", -1));
 
         String dataTEXT = cur_settings.getString("data_text", "FF");
@@ -122,7 +122,7 @@ public class Demo extends PreferenceActivity {
         Log.w("DEMO_VAL_ACCL", accelBTN);
         Log.w("DEMO_VAL_TEXT", textBTN);
         Log.w("DEMO_VAL_PIC", userPicBTN);
-        Log.w("DEMO_VAL_AMBIANT", ambiantBTN);
+        Log.w("DEMO_VAL_AMBIENT", ambientBTN);
         Log.w("DEMO_VAL_PROGRAM", programTEXT);
         Log.w("DEMO_VAL_DATA", dataTEXT);
         */
@@ -147,7 +147,7 @@ public class Demo extends PreferenceActivity {
 
         String sensor_str = gpsBTN + tempBTN + humidityBTN;
         sensor_str += timeBTN + accelBTN + textBTN + userPicBTN;
-        sensor_str += ambiantBTN;
+        sensor_str += ambientBTN;
         Log.w("DEMO_VAL_THIRD_FOURTH NIB BITS", sensor_str);
         String third_fourth_nib = String.format("%21X", Long.parseLong(sensor_str,2)).replaceAll("\\s+","");
         if (third_fourth_nib.length() == 1) {

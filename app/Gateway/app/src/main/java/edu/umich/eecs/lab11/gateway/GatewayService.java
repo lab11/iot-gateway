@@ -26,13 +26,13 @@ public class GatewayService extends IntentService implements SensorEventListener
     private final static String INTENT_SENSOR_ACCEL = "ACCEL";
     private final static String INTENT_SENSOR_TEMP = "TEMP";
     private final static String INTENT_SENSOR_GPS = "GPS";
-    private final static String INTENT_SENSOR_AMBIANT = "AMBIANT";
+    private final static String INTENT_SENSOR_AMBIENT = "AMBIENT";
     private final static String INTENT_SENSOR_HUMIDITY = "HUMIDITY";
 
 
     private Sensor mTemp;
     private Sensor mHumidity;
-    private Sensor mAmbiant;
+    private Sensor mAmbient;
 
     public GatewayService() {
         super("IN SENSOR INTENT");
@@ -60,7 +60,7 @@ public class GatewayService extends IntentService implements SensorEventListener
             Log.w("VAL_SENSOR_ERROR", "no temp!");
         }
         mHumidity = mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
-        mAmbiant = mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        mAmbient = mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
         mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         */
 
@@ -81,9 +81,9 @@ public class GatewayService extends IntentService implements SensorEventListener
                     Log.w("sensor_debug", "starting accel intent");
                     do_accel();
                 }
-                if (intent.getExtras().getString(INTENT_SENSOR_AMBIANT).equals(INTENT_TRUE)) {
+                if (intent.getExtras().getString(INTENT_SENSOR_AMBIENT).equals(INTENT_TRUE)) {
                     Log.w("sensor_debug", "starting ambient intent");
-                    do_ambiant();
+                    do_ambient();
                 }
                 if (intent.getExtras().getString(INTENT_SENSOR_GPS).equals(INTENT_TRUE)) {
                     Log.w("sensor_debug", "starting gps intent");
@@ -133,10 +133,10 @@ public class GatewayService extends IntentService implements SensorEventListener
         Log.w("tag", "doing time!");
     }
 
-    public void do_ambiant() {
-        Log.w("top", "doing ambiant service!");
+    public void do_ambient() {
+        Log.w("top", "doing ambient service!");
         if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null) {
-            mSensorManager.registerListener(this, mAmbiant, SensorManager.SENSOR_DELAY_NORMAL);
+            mSensorManager.registerListener(this, mAmbient, SensorManager.SENSOR_DELAY_NORMAL);
         }
         else {
             Log.w("VAL_SENSOR_ERROR", "no light sensor!");
