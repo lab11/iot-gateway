@@ -104,6 +104,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private String final_str;
     private String final_binary_str;
 
+    private String popup_text_string = "";
+
     private boolean waitingForOffload;
 
     private static final int REQUEST_ENABLE_BT = 1;
@@ -653,7 +655,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 } else if (i == Peripheral.PEEK_ENUM.time.ordinal()) {
                     if (cur_settings.getBoolean("time_agreement", true)) {
                         Log.w("sensor_debug", "adding time to intent");
-                        String key_val = "time ";
+                        String key_val = "GWTIME ";
                         key_val += System.currentTimeMillis();
                         cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
@@ -719,6 +721,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     if (cur_settings.getBoolean("user_input_agreement", true)) {
                         Log.w("sensor_debug", "doing text sensor");
                         do_popup_text();
+                        String key_val = "TEXT ";
+                        key_val += popup_text_string;
+                        if (popup_text_string.length()>0) {
+                            cur_peripheral.DATA_TO_PEEK.add(key_val);
+                            Log.w("sensor_debug", popup_text_string);
+                        }
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW input");
                         sensor_access += "input";
@@ -807,10 +815,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int whichButton) {
                 String value = input.getText().toString();
-                String key_val = "text ";
-                key_val += value;
-                cur_peripheral.DATA_TO_PEEK.add(key_val);
-                Log.w("sensor_debug", value);
+                popup_text_string = value;
                 mScanning = true;
                 paused = false;
                 mBluetoothAdapter.startLeScan(mLeScanCallback);
@@ -819,6 +824,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         alert.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int whichButton) {
+                popup_text_string = "";
                 mScanning = true;
                 paused = false;
                 mBluetoothAdapter.startLeScan(mLeScanCallback);
