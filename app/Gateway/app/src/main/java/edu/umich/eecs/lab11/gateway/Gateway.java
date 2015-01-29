@@ -4,6 +4,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -46,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 //import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 //import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
@@ -62,6 +66,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private ArrayList<String> programURL = new ArrayList<String>();
     private ArrayList<Integer> programSizesTotal = new ArrayList<Integer>();
 
+    private Map<String,BluetoothDevice> deviceMap;
 
     private Peripheral cur_peripheral;
 
@@ -226,7 +231,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             IP = String.format("%21X", Long.parseLong(IP, 2));
             String TRANSPARENT = final_binary_str.substring(64, 65);
             String RATE = final_binary_str.substring(65, 68);
-            String LEVEL = final_binary_str.substring(68, 72);
+            String QOS = final_binary_str.substring(68, 72);
             String SENSORS = final_binary_str.substring(72, 80);
             String PROGRAM_TYPE = final_binary_str.substring(80, 84);
             String DATA = final_binary_str.substring(84);
@@ -240,14 +245,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()] = QOS;
                 cur_peripheral.TRANSPARENT = true;
 
             } else {
                 Log.w("POINT", "PEEK FORWARD");
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()] = QOS;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
@@ -276,14 +281,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             Log.w("PARSE_FINAL", final_binary_str);
             String TRANSPARENT = final_binary_str.substring(0, 1);
             String RATE = final_binary_str.substring(1, 4);
-            String LEVEL = final_binary_str.substring(4, 8);
+            String QOS = final_binary_str.substring(4, 8);
             String SENSORS = final_binary_str.substring(8, 16);
             String PROGRAM_TYPE = final_binary_str.substring(16, 20);
             String DATA = final_binary_str.substring(20);
 
             Log.w("PARSE_TRANSPARENT", TRANSPARENT);
             Log.w("PARSE_RATE", RATE);
-            Log.w("PARSE_LEVEL", LEVEL);
+            Log.w("PARSE_QOS", QOS);
             Log.w("PARSE_SENSORS", SENSORS);
             Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
             Log.w("PARSE_DATA", DATA);
@@ -296,14 +301,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
                 cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()] = QOS;
                 cur_peripheral.TRANSPARENT = true;
 
             } else {
                 Log.w("POINT", "PEEK FORWARD");
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()] = LEVEL;
+                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()] = QOS;
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
                 cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
@@ -329,7 +334,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 gatdParams.put("DESTINATION", IP);
                 gatdParams.put("TRANSPARENT",TRANSPARENT);
                 gatdParams.put("RATE", RATE);
-                gatdParams.put("LEVEL", LEVEL);
+                gatdParams.put("QOS", QOS);
                 if (TRANSPARENT.equals("0")) {
                     gatdParams.put("SENSORS", SENSORS);
                 }
@@ -471,7 +476,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         // data cloud
         try {
-            JSONObject gatdDataParams = new JSONObject();
+            final JSONObject gatdDataParams = new JSONObject();
             gatdDataParams.put("TYPE", "data");
             if (cur_peripheral.TRANSPARENT) {
                 gatdDataParams.put("DEVICE_ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
@@ -493,12 +498,20 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
                 @Override
                 public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
+//                    if (Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()], 2) > 7) {
+//                        connect();
+//                    }
+//                        try{
+//                            BluetoothGatt mBluetoothGatt = deviceMap.get(gatdDataParams.getString("DEVICE_ID")).connectGatt(this, false, mGattCallback);
+//                        }
+//                        catch(Exception e){System.out.println("THOMAS FAIL");}
                 }
 
                 @Override
                 public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
                 }
             });
+
             Log.i("NOAH_POSTING_DATA: ", gatdDataParams.toString());
 
             if (!program_name_to_send.equals("")) { //there is a program
@@ -749,34 +762,34 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             }
         }
 
-        //Check to see if the failure is ok based on peripheral_level
-        Integer periph_level = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.level.ordinal()], 2);
+        //Check to see if the failure is ok based on peripheral_qos
+        Integer periph_qos = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()], 2);
         boolean is_able = true;
         if (failable_hw.length() != 0 || sensor_access.length() != 0) { //so hw doesn't support some sensor or user doesn't allow some sensor
-            if (periph_level == Peripheral.LEVEL_ENUM.REQ_NONE.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_ALL_NO_SENSORS.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_ALL_NO_SENSORS_NOT_INCL_GPS.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_CONNECTION.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
+            if (periph_qos == Peripheral.QOS_ENUM.REQ_NONE.ordinal() ||
+                    periph_qos == Peripheral.QOS_ENUM.REQ_ALL_NO_SENSORS.ordinal() ||
+                    periph_qos == Peripheral.QOS_ENUM.REQ_ALL_NO_SENSORS_NOT_INCL_GPS.ordinal() ||
+                    periph_qos == Peripheral.QOS_ENUM.REQ_NONE_BUT_CONNECTION.ordinal() ||
+                    periph_qos == Peripheral.QOS_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
             } else {
-                Log.w("IS_ABLE_FALSE", "PERIPHERAL LEVEL NOT ALIGNED");
+                Log.w("IS_ABLE_FALSE", "PERIPHERAL QOS NOT ALIGNED");
                 is_able = false;
             }
         }
-        if (!hasGPS || !allowsGPS) { //for the req_all_no_sensors_not_incl_gps level
-            if (periph_level == Peripheral.LEVEL_ENUM.REQ_NONE.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_ALL_NO_SENSORS.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_CONNECTION.ordinal() ||
-                    periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
+        if (!hasGPS || !allowsGPS) { //for the req_all_no_sensors_not_incl_gps qos
+            if (periph_qos == Peripheral.QOS_ENUM.REQ_NONE.ordinal() ||
+                    periph_qos == Peripheral.QOS_ENUM.REQ_ALL_NO_SENSORS.ordinal() ||
+                    periph_qos == Peripheral.QOS_ENUM.REQ_NONE_BUT_CONNECTION.ordinal() ||
+                    periph_qos == Peripheral.QOS_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
             } else {
-                Log.w("IS_ABLE_FALSE", "PERIPHERAL LEVEL NOT ALIGNED GPS");
+                Log.w("IS_ABLE_FALSE", "PERIPHERAL QOS NOT ALIGNED GPS");
                 is_able = false;
             }
         }
 
-        if (periph_level == Peripheral.LEVEL_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
+        if (periph_qos == Peripheral.QOS_ENUM.REQ_NONE_BUT_SERVICE.ordinal()) {
             if (!isOnline()) {
-                Log.w("IS_ABLE_FALSE", "PERIPHERAL LEVEL NOT ALIGNED SERVICE");
+                Log.w("IS_ABLE_FALSE", "PERIPHERAL QOS NOT ALIGNED SERVICE");
                 is_able = false;
             }
         }
@@ -1120,8 +1133,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
             byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
             Log.w("TYPE", String.valueOf(scanRecord[index]));
-            if (type==22)
-                parse(device.getName(),device.getAddress(),rssi, getHexString(data));
+            if (type==22) {
+                parse(device.getName(), device.getAddress(), rssi, getHexString(data));
+                deviceMap.put(device.getAddress(),device);
+            }
 //Advance
             index += length;
         }

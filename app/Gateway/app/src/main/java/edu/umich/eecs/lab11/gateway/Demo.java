@@ -97,7 +97,7 @@ public class Demo extends PreferenceActivity {
         String IPTEXT = cur_settings.getString("ip_text", "20014701F1013202");
         String transparentBTN = boolToStr(cur_settings.getBoolean("peripheral_transparent_req", true));
         String rateTEXT = String.valueOf(cur_settings.getInt("data_rate", -1));
-        String levelTEXT = String.valueOf(cur_settings.getInt("level_rate", -1));
+        String qosTEXT = String.valueOf(cur_settings.getInt("qos_rate", -1));
         String gpsBTN = boolToStr(cur_settings.getBoolean("peripheral_gps_req", true));
         String tempBTN = boolToStr(cur_settings.getBoolean("peripheral_temp_req", true));
         String humidityBTN = boolToStr(cur_settings.getBoolean("peripheral_humidity_req", true));
@@ -114,7 +114,7 @@ public class Demo extends PreferenceActivity {
         Log.w("DEMO_VAL_IP", IPTEXT);
         Log.w("DEMO_VAL_TRANSPARENT", transparentBTN);
         Log.w("DEMO_VAL_RATE", rateTEXT);
-        Log.w("DEMO_VAL_LEVEL", levelTEXT);
+        Log.w("DEMO_VAL_QOS", qosTEXT);
         Log.w("DEMO_VAL_GPS", gpsBTN);
         Log.w("DEMO_VAL_TEMP", tempBTN);
         Log.w("DEMO_VAL_HUMID", humidityBTN);
@@ -137,9 +137,9 @@ public class Demo extends PreferenceActivity {
         first_nib = String.format("%21X", Long.parseLong(first_nib,2)).replaceAll("\\s+","");
         Log.w("DEMO_VAL_FIRST NIB", first_nib);
 
-        levelTEXT = Integer.toString(Integer.valueOf(levelTEXT.replaceAll("\\s+","")), 2);
+        qosTEXT = Integer.toString(Integer.valueOf(qosTEXT.replaceAll("\\s+","")), 2);
 
-        String second_nib = levelTEXT;
+        String second_nib = qosTEXT;
         Log.w("DEMO_VAL_SECOND NIB BITS", second_nib);
         second_nib = String.format("%21X", Long.parseLong(second_nib,2)).replaceAll("\\s+","");
         Log.w("DEMO_VAL_SECOND NIB", second_nib);

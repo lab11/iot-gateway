@@ -13,11 +13,11 @@ public class Peripheral {
     public boolean TRANSPARENT;
 
     public enum TRANSPARENT_ENUM {
-        ip_address, transparent_flag, rate, program_type, level,
+        ip_address, transparent_flag, rate, program_type, qos,
         data_blob, dev_address, dev_name
     }
 
-    public enum LEVEL_ENUM {
+    public enum QOS_ENUM {
         REQ_ALL, REQ_ALL_NO_RATE,
         REQ_ALL_NO_SENSORS, REQ_ALL_NO_SENSORS_NOT_INCL_GPS,
         REQ_NONE_BUT_CONNECTION, REQ_NONE_BUT_SERVICE, REQ_NONE
@@ -25,7 +25,7 @@ public class Peripheral {
 
     public enum PEEK_ENUM {
         ip_address, transparent_flag, rate,
-        level, gps, temp, humidity, time, accel, text, pic, ambient,
+        qos, gps, temp, humidity, time, accel, text, pic, ambient,
         program_need, program_type,
         data_blob, dev_address, dev_name
     }

@@ -21,9 +21,9 @@
     </PreferenceCategory>
     <PreferenceCategory android:title="Reliability">
         <com.robobunny.SeekBarPreference
-            android:title="Reliability Level (See Spec for Def)"
+            android:title="Reliability QoS (See Spec for Def)"
             android:defaultValue="0"
-            android:key="level_rate"
+            android:key="qos_rate"
             android:max="15"/>
     </PreferenceCategory>
     <PreferenceCategory android:title="Data Augmentation">
