@@ -29,7 +29,6 @@ public class GatewayService extends IntentService implements SensorEventListener
     private final static String INTENT_SENSOR_AMBIENT = "AMBIENT";
     private final static String INTENT_SENSOR_HUMIDITY = "HUMIDITY";
 
-
     private Sensor mTemp;
     private Sensor mHumidity;
     private Sensor mAmbient;
