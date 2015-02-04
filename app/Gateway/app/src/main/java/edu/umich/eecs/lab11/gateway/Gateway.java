@@ -429,7 +429,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                                         Log.i(tag, "RAWR: Connected to GATT server.");
                                         System.out.println(responseString);
-                                    mBluetoothGatt.discoverServices();
+                                        mBluetoothGatt.discoverServices();
                                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                                         Log.i(tag, "RAWR: Disconnected from GATT server.");
                                     }
@@ -438,12 +438,21 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                                 @Override
                                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
                                     super.onServicesDiscovered(gatt, status);
-                                    if (status == BluetoothGatt.GATT_SUCCESS) { 
+                                    if (status == BluetoothGatt.GATT_SUCCESS) {
                                         Log.w(tag, "RAWR: Service Discovery Successful: ");
-                                        for (BluetoothGattService gattService : mBluetoothGatt.getServices()) System.out.println(gattService.getUuid());
+                                        try {
+                                            for (BluetoothGattService gattService : mBluetoothGatt.getServices()) {
+                                                System.out.println("SERVICE: "+GattSpecs.serviceNameLookup(gattService.getUuid()));
+                                                for (BluetoothGattCharacteristic gattCharacteristic : gattService.getCharacteristics()) {
+                                                    System.out.print("CHARACTERISTIC: "+GattSpecs.characteristicNameLookup(gattCharacteristic.getUuid()));
+                                                    System.out.println(", VALUE: "+gattCharacteristic.getWriteType());
+                                                }
+                                            }
+                                        } catch (Exception e) {e.printStackTrace();}
                                     } else {
                                         Log.w(tag, "RAWR: onServicesDiscovered received: " + status);
                                     }
+                                    mBluetoothGatt.disconnect();
                                     mBluetoothGatt.close();
                                 }
 
@@ -939,10 +948,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
             byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
             if (type==22) {
-                Log.w("MATCH", "Type matched, submitting for parsing");
+                Log.w("MATCH", "Type matched, submitting for parsing: " + device.getName());
                 deviceMap.put(device.getAddress(), device);
                 parse(device.getName(), device.getAddress(), rssi, getHexString(data));
             }
+
+            if (device.getName().contains("Tessel")) System.out.println("TESSEL : " + type);
 //Advance
             index += length;
         }
