@@ -16,7 +16,11 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
@@ -30,6 +34,7 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -47,6 +52,7 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HTTP;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -62,7 +68,7 @@ import java.util.Map;
 //import com.google.android.gms.common.GooglePlayServicesAvailabilityException;
 //import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 
-public class Gateway extends PreferenceActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
+public class Gateway extends PreferenceActivity {
 
     private ArrayList<String> programValid = new ArrayList<String>();
     private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>();
@@ -72,9 +78,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     private Map<String,BluetoothDevice> deviceMap = new HashMap<String, BluetoothDevice>();
 
+    private PackageManager packageManager;
+
     private Peripheral cur_peripheral;
 
     private SensorManager mSensorManager;
+    private HashMap<Integer,String> mSensors;
 
     private final static String INTENT_TRUE = "TRUE";
     private final static String INTENT_FALSE = "FALSE";
@@ -110,10 +119,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private String final_binary_str;
 
     private String popup_text_string = "";
+    private String popup_pic_string = "";
 
     private boolean waitingForOffload;
 
     private static final int REQUEST_ENABLE_BT = 1;
+    private static final int REQUEST_IMAGE_CAPTURE = 2;
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
     private SharedPreferences cur_settings;
@@ -131,7 +142,15 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         cur_peripheral = new Peripheral();
 
+        packageManager = getApplicationContext().getPackageManager();
+
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        System.out.println("MAGIC : " + mSensorManager.getSensorList(Sensor.TYPE_ALL).toString());
+        mSensors = new HashMap<Integer, String>();
+        mSensors.put(Sensor.TYPE_AMBIENT_TEMPERATURE,"");
+        mSensors.put(Sensor.TYPE_RELATIVE_HUMIDITY,"");
+        mSensors.put(Sensor.TYPE_ACCELEROMETER,"");
+        mSensors.put(Sensor.TYPE_LIGHT,"");
 
         programValid.add("PayMe");
         programValid.add("YOUPAY");
@@ -172,20 +191,68 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
+        // fire an intent to display a dialog asking the user to grant permission to enable it.
+        if (!mBluetoothAdapter.isEnabled()) {
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+        }
+        paused = false;
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+
+        // Initializes list view adapter.
+        scanLeDevice(true);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mScanning = false;
+        paused = true;
+        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        mSensorManager.unregisterListener(mSensorListener);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // User chose not to enable Bluetooth.
+        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
+            finish();
+            return;
+        }
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            Bundle extras = data.getExtras();
+            Bitmap bm = (Bitmap) extras.get("data");
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bm.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+            popup_pic_string = Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT);
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
     /**
      * Settings Fragment: Pulls information from preference xml & automatically updates on change
      */
     public static class GatewayFragment extends PreferenceFragment {
+        private SensorManager mSensorManager;
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.preferences);
+            mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) == null) getPreferenceManager().findPreference("temp_agreement").setEnabled(false);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY) == null) getPreferenceManager().findPreference("humidity_agreement").setEnabled(false);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) getPreferenceManager().findPreference("accel_agreement").setEnabled(false);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) == null) getPreferenceManager().findPreference("ambient_agreement").setEnabled(false);
         }
-    }
-
-    @Override
-    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
-
     }
 
 
@@ -215,7 +282,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
 
         String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,32);
-        Log.w("PARSE_IP", IP);
+//        Log.w("PARSE_IP", IP);
 
 
         final_binary_str = hexToBinary(a.substring(32));
@@ -227,12 +294,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         String PROGRAM_TYPE = final_binary_str.substring(16, 20);
         String DATA = final_binary_str.substring(20);
 
-        Log.w("PARSE_TRANSPARENT", TRANSPARENT);
-        Log.w("PARSE_RATE", RATE);
-        Log.w("PARSE_QOS", QOS);
-        Log.w("PARSE_SENSORS", SENSORS);
-        Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
-        Log.w("PARSE_DATA", DATA);
+//        Log.w("PARSE_TRANSPARENT", TRANSPARENT);
+//        Log.w("PARSE_RATE", RATE);
+//        Log.w("PARSE_QOS", QOS);
+//        Log.w("PARSE_SENSORS", SENSORS);
+//        Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
+//        Log.w("PARSE_DATA", DATA);
 
         if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
             Log.w("POINT", "TRANSPARENT FORWARD");
@@ -314,7 +381,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     public boolean switch_grant(Integer peripheral_program_level) {
-        Log.w(top, "switch_grant()");
+//        Log.w(top, "switch_grant()");
 
         Integer user_pay_floor = cur_settings.getInt("min_pay_rate", 0);
 
@@ -351,7 +418,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     private boolean do_monetary_program(Integer pay_level) {
-        Log.w(top, "do_monetary_program(Integer pay_level)");
+//        Log.w(top, "do_monetary_program(Integer pay_level)");
         String program_name = cur_settings.getString("program_text", "PayMe").trim();
         Log.w("program_debug", program_name);
         Integer program_index = programValid.lastIndexOf(program_name);
@@ -382,8 +449,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     private void schedule() {
-        Log.w(top, "schedule()");
-        Log.w("POINT", "scheduling is not implemented");
+//        Log.w(top, "schedule()");
+//        Log.w("POINT", "scheduling is not implemented");
         post();
     }
 
@@ -429,7 +496,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                                         Log.i(tag, "RAWR: Connected to GATT server.");
                                         System.out.println(responseString);
-                                        mBluetoothGatt.discoverServices();
+//                                        mBluetoothGatt.discoverServices();
+                                        mBluetoothGatt.disconnect();
+                                        mBluetoothGatt.close();
                                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                                         Log.i(tag, "RAWR: Disconnected from GATT server.");
                                     }
@@ -462,7 +531,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                                 }
                             });
                         }
-                        catch(Exception e){System.out.println("THOMAS FAIL");}
+                        catch(Exception e){ e.printStackTrace();}
                     }
                 }
             });
@@ -478,44 +547,26 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 programSizesTotal.set(program_index, cur_total_size);
                 send_program();
             }
-        } catch (Exception e) { System.out.println("WHAT?!"); }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
-    String mCurrentPhotoPath;
+//    String mCurrentPhotoPath;
 
-    private File createImageFile() throws IOException {
-        // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES);
-        File image = File.createTempFile(
-                imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
-                storageDir      /* directory */
-        );
-        // Save a file: path for use with ACTION_VIEW intents
-        mCurrentPhotoPath = "file:" + image.getAbsolutePath();
-        return image;
-    }
-
-    public void take_picture() {
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            File photoFile = null;
-            try {
-                photoFile = createImageFile();
-            } catch (IOException ex) {
-
-            }
-            if (photoFile != null) {
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT,
-                        Uri.fromFile(photoFile));
-                startActivityForResult(takePictureIntent, 1);
-            }
-        }
-    }
-
+//    private File createImageFile() throws IOException {
+//        // Create an image file name
+//        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+//        String imageFileName = "JPEG_" + timeStamp + "_";
+//        File storageDir = Environment.getExternalStoragePublicDirectory(
+//                Environment.DIRECTORY_PICTURES);
+//        File image = File.createTempFile(
+//                imageFileName,  /* prefix */
+//                ".jpg",         /* suffix */
+//                storageDir      /* directory */
+//        );
+//        // Save a file: path for use with ACTION_VIEW intents
+//        mCurrentPhotoPath = "file:" + image.getAbsolutePath();
+//        return image;
+//    }
 
     public boolean hasGPSDevice(Context context) {
         final LocationManager mgr = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
@@ -558,19 +609,15 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         // 5. if user doesn't grant, adds to sensor_access to be skipped or not with level
 
         for (int i = Peripheral.PEEK_ENUM.gps.ordinal(); i <= Peripheral.PEEK_ENUM.ambient.ordinal(); i++) {
-            Log.w("sensor_debug", "TEST");
+//            Log.w("sensor_debug", "TEST");
             if (cur_peripheral.PEEK_FLAGS[i].equals("1")) {
                 if (i == Peripheral.PEEK_ENUM.accel.ordinal()) {
                     if (cur_settings.getBoolean("accel_agreement", true)) {
-                        Log.w("USER_AGREEMENT", "DOES ALLOW ACCEL");
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
-                            Log.w("sensor_debug", "adding accel to intent");
-                            intent.putExtra(INTENT_SENSOR_ACCEL, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT accel");
-                            failable_hw += " accel ";
-                        }
+                        Log.w("sensor_debug", "adding accel to intent");
+                        String key_val = "ACCELEROMETER ";
+                        String sensor = mSensors.get(Sensor.TYPE_ACCELEROMETER);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW ACCEL");
                         sensor_access += "accel";
@@ -587,14 +634,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     }
                 } else if (i == Peripheral.PEEK_ENUM.temp.ordinal()) {
                     if (cur_settings.getBoolean("temp_agreement", true)) {
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) != null) {
-                            Log.w("sensor_debug", "adding temp to intent");
-                            intent.putExtra(INTENT_SENSOR_TEMP, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT temp");
-                            failable_hw += " temp ";
-                        }
+                        Log.w("sensor_debug", "adding temp to intent");
+                        String key_val = "TEMPERATURE ";
+                        String sensor = mSensors.get(Sensor.TYPE_AMBIENT_TEMPERATURE);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW temp");
                         sensor_access += "temp";
@@ -603,15 +647,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     if (cur_settings.getBoolean("gps_agreement", true)) {
                         Log.w("sensor_debug", "adding gps to intent");
                         allowsGPS = true; //for a specific level
-                        PackageManager packageManager = getApplicationContext().getPackageManager();
                         hasGPS = packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS);
                         if (hasGPS) {
                             Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
                             String key_val = "LOCATION ";
                             key_val += loc.getLatitude()+","+loc.getLongitude()+","+loc.getAltitude();
                             cur_peripheral.DATA_TO_PEEK.add(key_val);
-                            //intent.putExtra(INTENT_SENSOR_GPS, INTENT_TRUE);
-                            //intent_needed = true;
                         } else {
                             Log.w("USER_AGREEMENT", "DOESNT SUPPORT gps");
                         }
@@ -620,14 +661,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     }
                 } else if (i == Peripheral.PEEK_ENUM.humidity.ordinal()) {
                     if (cur_settings.getBoolean("humidity_agreement", true)) {
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY) != null) {
-                            Log.w("sensor_debug", "adding humidity to intent");
-                            intent.putExtra(INTENT_SENSOR_HUMIDITY, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT humidity");
-                            failable_hw += "humidity";
-                        }
+                        Log.w("sensor_debug", "adding humidity to intent");
+                        String key_val = "HUMIDITY ";
+                        String sensor = mSensors.get(Sensor.TYPE_RELATIVE_HUMIDITY);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW humidity");
                         sensor_access += "humidity";
@@ -636,6 +674,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     if (cur_settings.getBoolean("user_camera_agreement", true)) {
                         Log.w("sensor_debug", "doing picture sensor");
                         do_popup_pic();
+                        String key_val = "IMAGE ";
+                        key_val += popup_pic_string;
+                        Log.w("sensor_debug", popup_pic_string);
+                        if (popup_pic_string.length()>0) {
+                            cur_peripheral.DATA_TO_PEEK.add(key_val);
+                            Log.w("sensor_debug", popup_pic_string);
+                        }
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW pic");
                         sensor_access += "pic";
@@ -656,14 +701,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     }
                 } else if (i == Peripheral.PEEK_ENUM.ambient.ordinal()) {
                     if (cur_settings.getBoolean("ambient_agreement", true)) {
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null) {
-                            Log.w("sensor_debug", "adding ambient to intent");
-                            intent.putExtra(INTENT_SENSOR_AMBIENT, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT ambient");
-                            failable_hw += "ambient";
-                        }
+                        Log.w("sensor_debug", "adding ambient to intent");
+                        String key_val = "LIGHT ";
+                        String sensor = mSensors.get(Sensor.TYPE_LIGHT);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW ambient");
                         sensor_access += "ambient";
@@ -718,7 +760,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public void do_popup_pic() {
         Log.w(top, "do_popup_pic");
-        take_picture();
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null)
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
     }
 
     public void do_popup_text() {
@@ -756,6 +800,22 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         alert.show();
     }
 
+    private SensorEventListener mSensorListener = new SensorEventListener() {
+        @Override
+        public final void onAccuracyChanged(Sensor sensor, int accuracy) { }
+
+        @Override
+        public final void onSensorChanged(SensorEvent event) {
+            Integer type = event.sensor.getType();
+            switch (type) {
+                case Sensor.TYPE_AMBIENT_TEMPERATURE: mSensors.put(type,event.values[0]+"C"); break;
+                case Sensor.TYPE_RELATIVE_HUMIDITY: mSensors.put(type,event.values[0]+"%"); break;
+                case Sensor.TYPE_ACCELEROMETER: mSensors.put(type,"["+event.values[0]+","+event.values[1]+","+event.values[2]+"]m/s^2"); break;
+                case Sensor.TYPE_LIGHT: mSensors.put(type,event.values[0]+"lx"); break;
+            }
+        }
+    };
+
     private BroadcastReceiver mServiceMessageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -787,65 +847,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public void send_ack() {
         Log.w(top, "send_ack()");
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.gateway, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-//        if (id == R.id.action_demo) {
-//            Intent intent = new Intent(this, Demo.class);
-//            intent.putExtra("FINAL_STR", "");
-//            startActivityForResult(intent, 0);
-//            //startActivityForResult(intent);
-//            return true;
-//        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
-        // fire an intent to display a dialog asking the user to grant permission to enable it.
-        if (!mBluetoothAdapter.isEnabled()) {
-            if (!mBluetoothAdapter.isEnabled()) {
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            }
-        }
-
-        paused = false;
-
-        // Initializes list view adapter.
-        scanLeDevice(true);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // User chose not to enable Bluetooth.
-        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
-            finish();
-            return;
-        }
-        super.onActivityResult(requestCode, resultCode, data);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        mScanning = false;
-        paused = true;
-        mBluetoothAdapter.stopLeScan(mLeScanCallback);
     }
 
     private void scanLeDevice(final boolean enable) {
@@ -952,8 +953,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 deviceMap.put(device.getAddress(), device);
                 parse(device.getName(), device.getAddress(), rssi, getHexString(data));
             }
-
-            if (device.getName().contains("Tessel")) System.out.println("TESSEL : " + type);
 //Advance
             index += length;
         }

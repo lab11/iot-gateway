@@ -20,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId "edu.umich.eecs.lab11.gateway"
-        minSdkVersion 18
+        minSdkVersion 19
         targetSdkVersion 20
         versionCode 1
         versionName "1.0"

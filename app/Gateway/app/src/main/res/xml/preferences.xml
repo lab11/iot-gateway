@@ -10,7 +10,7 @@
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="temp_agreement"
-            android:title="Temp" />
+            android:title="Temperature" />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="humidity_agreement"

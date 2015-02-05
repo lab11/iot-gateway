@@ -10,11 +10,13 @@
     <style>
         html { height:100%; }
         body { font-family:'Helvetica Neue'; font-weight:200; font-size:small; text-align:center; height:100% }
-        table { font-family:'Helvetica Neue'; font-weight:200; font-size:small; }
+        table {font-size:small;}
+        td { font-family:'Helvetica Neue'; font-weight:200; font-size:small; }
+        h3 {p
     </style>
   </head>
   <body>
-      <h3 style="height:3%">AT GATEWAY (RECEIVED AT DEBUG CLOUD)</h3>
+      <h3 style="height:1%">AT GATEWAY (RECEIVED AT DEBUG CLOUD)</h3>
       <div style="height:30%">
             <table id="debug-table">
                 <thead>
@@ -33,7 +35,7 @@
                 </thead>
             </table>
       </div>
-      <h3 style="height:3%">RECEIVED AT DATA CLOUD</h3>
+      <h3 style="height:1%">RECEIVED AT DATA CLOUD</h3>
       <div style="height:30%">
             <table id="receive-table">
                 <thead>
@@ -42,12 +44,17 @@
                         <th data-field="DATA">DATA</th>
                         <th data-field="GWTIME">GW TIME</th>
                         <th data-field="LOCATION">LOCATION</th>
+                        <th data-field="TEMPERATURE">TEMP</th>
+                        <th data-field="HUMIDITY">HUM</th>
+                        <th data-field="ACCELEROMETER">ACCEL</th>
+                        <th data-field="LIGHT">LIGHT</th>
                         <th data-field="TEXT">TEXT</th>
+                        <th data-field="IMAGE">IMAGE</th>
                     </tr>
                 </thead>
             </table>
       </div>
-      <h3 style="height:3%">RECEIVED AT INCENTIVE CLOUD</h3>
+      <h3 style="height:1%">RECEIVED AT INCENTIVE CLOUD</h3>
       <div style="height:30%">
             <table id="incentive-table">
                 <thead>
@@ -77,6 +84,7 @@
             debug_data.unshift(dat);
             $('#debug-table').bootstrapTable('load', debug_data );
        } else if (dat.TYPE == "data") {
+            if (typeof dat.IMAGE !== 'undefined') dat.IMAGE = "<a href='data:image/jpg;base64,"+dat.IMAGE+"' target='_blank'>View</a>";
             receive_data.unshift(dat);
             $('#receive-table').bootstrapTable('load', receive_data );
         console.log(dat);

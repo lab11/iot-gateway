@@ -28,7 +28,7 @@
             android:key="data_rate"
             android:max="7"/>
     </PreferenceCategory>
-    <PreferenceCategory android:title="Reliability">
+    <PreferenceCategory android:title="Quality of Service">
         <com.robobunny.SeekBarPreference
             android:title="Program Level (See Spec for Def)"
             android:defaultValue="0"
