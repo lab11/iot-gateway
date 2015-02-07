@@ -1,0 +1,127 @@
+<!-- {#Name: Gateway Example#}
+{#Desc: Data From Tessel via Open Smartphone Gateway implementation.#}
+
+{% extends "base_intro.jinja" %}
+
+{% block includes %} -->
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF8"/>
+
+
+<style>
+    * {transition:1s;}
+    body {font-size:20pt; font-weight:100;}
+    span  {color: rgba(30,30,30,.6); font-weight:100; display:inline-block;}
+    #status {background: rgb(0,127,255); color:rgba(230,230,230,.8); text-align:center; width:300px; height:300px; border-radius:50%; padding:50px 0; margin:10px auto; font-size:20pt;}
+    #graph1 {font-size:10pt; font-weight: 200;}
+    .Some {-webkit-animation: move .5s; animation: move .5s;}
+    @-webkit-keyframes move {25%{-webkit-transform:translate(-50px)} 50%{-webkit-transform:translate(60px)} 75%{-webkit-transform:translate(-10px)} 100%{-webkit-transform:translate(0px)}}
+    @keyframes move {25%{transform:translate(-50px)} 50%{transform:translate(60px)} 75%{transform:translate(-20px)} 100%{transform:translate(0px)}}
+</style>
+<script src="http://gatd.eecs.umich.edu/bower_components/socket.io-client/dist/socket.io.min.js"></script> <!--Not live-->
+<script src="http://gatd.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script> <!--Not live-->
+<script src="http://gatd.eecs.umich.edu/bower_components/underscore/underscore.js"></script>
+<link href="http://gatd.eecs.umich.edu/css/base.css" media="all" rel="stylesheet" type="text/css" />
+<script src="http://gatd.eecs.umich.edu/js/jquery.flot.custom-0.8.2.js"></script>
+<script src="http://gatd.eecs.umich.edu/js/jquery.flot.resize.js"></script>
+<script src="http://gatd.eecs.umich.edu/bower_components/flot/jquery.flot.time.js"></script>
+<script src="http://gatd.eecs.umich.edu/js/jquery.grapher.js"></script>
+<script src="http://gatd.eecs.umich.edu/js/gatd_graph.js"></script>
+<script type='text/javascript' src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>
+<link href="http://gatd.eecs.umich.edu/css/gatd_graph.css" media="all" rel="stylesheet" type="text/css" />
+<link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+</head>
+<body>
+
+<!-- {% endblock %}
+
+{% block title %}
+Gateway Example
+{% endblock %}
+
+{% block page_title %}
+Gateway Example
+{% endblock %}
+
+{% block tagline %}
+Data From Tessel via Open Smartphone Gateway implementation
+{% endblock %}
+
+{% block content %}
+ -->
+<div id="container" style="margin-top:5px;">
+    <div class='row'>
+        <div class="col-xl-8 col-md-7 col-sm-6 col-xs-12 col-sm-offset-1" id='graph1' style='height:400px;'></div>
+        <div class="col-xl-2 com-md-3 col-sm-3 col-xs-12">
+            <div id='status' class='None'>
+                <span style='color:inherit;'>PERIPHERAL DATA</span><br />
+                <span style='font-weight:300; font-size:12pt; margin-bottom:10px;'>via Smartphone Gateway</span><br />
+                Temperature <span id="Temperature">0</span><span>&deg;F</span><br />
+                Humidity    <span id="Humidity">0</span><span>%</span><br />
+                Firmware    <span>v</span><span id="Version">0</span><br />
+            </div>
+            <div style='text-align:center; width:300px; margin:0 auto'><span>Last Update:</span><br /><span id='time'></span></div>
+        </div>
+        <div class="col-sm-1 col-xs-0">
+    </div>
+</div>
+
+<script>
+var PROFILE_ID = 'SgYPCHTR5a';                                      
+var ID    = "00:07:80:79:31:67";      
+var TIME_SPAN  = 5; // time range in minutes for Duttection                                             
+var GRAPH_SPAN  = 10; // time range (in minutes) to display on graph  
+var socket, blah, graphtime;
+var motion = 0; // initialize to no motion detected
+var dat;
+var convert = function (data) {
+    var tim = data['time'];
+    if (tim>=graphtime) {
+        dat = data;
+        var tmp = parseFloat(data['temperature']) - 10; console.log(tmp-10);
+        var hum = parseFloat(data['humidity']); console.log(data.Humidity);
+        var ver = data['version']; console.log(ver);
+        add_to_graph(g1,'',0,0,0,0);
+        add_to_graph(g1, 'Temperature (F)', tim, tmp, get_color(8), 0);
+        add_to_graph(g1, 'Humidity (%)'   , tim, hum, get_color(10), 0);
+        change ( 'Temperature', Math.round(tmp) );
+        change ( 'Humidity', Math.round((hum > 100) ? 100 : hum) );
+        document.getElementById('Version').innerHTML=ver;
+        document.querySelector('#status').style.background = 'rgb(' + Math.round(2.8 * tmp) + ',' + 127 + ',' + Math.round(255 - tmp * 2.8) + ')';         
+        document.querySelector('#status').className = 'Some';
+        setTimeout(function(){document.querySelector('#status').className = 'None'},1000);
+    }
+    document.querySelector('#time').innerHTML = (new Date(tim)).toLocaleTimeString();
+}
+
+var change = function (nid,next,timeval) {
+    var current  = document.getElementById(nid).innerHTML;
+    var delta    = (current-next)/50;
+    var i        = 0;
+    var dig = function () {
+        current  -= delta;
+        document.getElementById(nid).innerHTML=Math.round(current);
+        if(i++<50) setTimeout(function () {dig()},10);
+    };
+    if (isNaN(parseInt(current))) document.querySelector("#"+nid).innerHTML=next;
+    else if (current!=next) dig();
+}
+onload = function() {
+    graphtime = (new Date()).getTime() - GRAPH_SPAN*60*1000;
+    socket = io.connect('gatd.eecs.umich.edu:8082/stream');
+    socket.on('connect', function (data) { socket.emit('query', { 'profile_id': PROFILE_ID, 'time': TIME_SPAN*60*1000, 'ID':ID}); });
+    socket.on('data',    function (data) { convert(data); console.log(data); });
+    g1 = $.grapher( $('#graph1') , {
+            legend: {show: true, position:'nw'},
+            xaxis:  {show:true, width:GRAPH_SPAN*60*1000, mode: 'time', tickFormatter:x_format},
+            yaxis:  {max:100, min:0}, 
+            grid:   {margin: {top: 8, bottom: 20, left: 20, right: 20}, borderWidth:1, borderColor:'#999'},
+        });
+    g1.__uniqueid = 1;
+    for(i=0;i<20;i++) get_color(i);
+}
+</script>
+</html>
+<!-- {% endblock %} -->
