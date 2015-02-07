@@ -50,6 +50,7 @@ import org.apache.http.Header;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HTTP;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -62,6 +63,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 //import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 //import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
@@ -104,6 +106,7 @@ public class Gateway extends PreferenceActivity {
     private Handler mHandler;
     private boolean paused;
     private static AsyncHttpClient client = new AsyncHttpClient();
+    private static AsyncHttpClient clientx = new AsyncHttpClient();
 
     private final String tag = "tag";
     private final String top = "top";
@@ -354,7 +357,6 @@ public class Gateway extends PreferenceActivity {
                 @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                 @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
             });
-            System.out.println("blah"+gatdParams);
         } catch (Exception e) {}
 
         run_forward(TRANSPARENT);
@@ -475,9 +477,14 @@ public class Gateway extends PreferenceActivity {
                 gatdDataParams.put("DATA", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()]);
                 gatdDataParams.put("QOS", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()]);
             }
-            StringEntity entity = new StringEntity(gatdDataParams.toString());
+            final StringEntity entity = new StringEntity(gatdDataParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
             client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new TextHttpResponseHandler() {
+                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { }
+                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, String responseString) { }
+            });
+
+            client.post(getBaseContext(), "http://gatewaycloud.elasticbeanstalk.com/", entity, "application/json", new TextHttpResponseHandler() {
 
                 public BluetoothDevice device = deviceMap.get(gatdDataParams.getString("DEVICE_ID"));
                 public Integer qos = Integer.parseInt(gatdDataParams.getString("QOS"), 2);
@@ -487,18 +494,22 @@ public class Gateway extends PreferenceActivity {
 
                 @Override
                 public void onSuccess(int statusCode, org.apache.http.Header[] headers, final String responseString) {
-                    if (qos >= 7) {
-                        try{
+                    System.out.println("RESPONSE : " + responseString);
+                    if (responseString.length()<2) return;
+                    try {
+                        final JSONObject responseJSON = new JSONObject(responseString);
+                        if (qos >= 7 && responseJSON.has("services") && responseJSON.has("device_id") && device.getAddress().equals(responseJSON.getString("device_id"))) {
                             mBluetoothGatt = device.connectGatt(getBaseContext(), false, new BluetoothGattCallback() {
+                                JSONArray services = responseJSON.getJSONArray("services");
+                                JSONArray charArray = new JSONArray();
+                                ArrayList<BluetoothGattCharacteristic> characteristicsList = new ArrayList<BluetoothGattCharacteristic>();
+
                                 @Override
                                 public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                                     super.onConnectionStateChange(gatt, status, newState);
                                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                                         Log.i(tag, "RAWR: Connected to GATT server.");
-                                        System.out.println(responseString);
-//                                        mBluetoothGatt.discoverServices();
-                                        mBluetoothGatt.disconnect();
-                                        mBluetoothGatt.close();
+                                        gatt.discoverServices();
                                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                                         Log.i(tag, "RAWR: Disconnected from GATT server.");
                                     }
@@ -510,29 +521,58 @@ public class Gateway extends PreferenceActivity {
                                     if (status == BluetoothGatt.GATT_SUCCESS) {
                                         Log.w(tag, "RAWR: Service Discovery Successful: ");
                                         try {
-                                            for (BluetoothGattService gattService : mBluetoothGatt.getServices()) {
-                                                System.out.println("SERVICE: "+GattSpecs.serviceNameLookup(gattService.getUuid()));
-                                                for (BluetoothGattCharacteristic gattCharacteristic : gattService.getCharacteristics()) {
-                                                    System.out.print("CHARACTERISTIC: "+GattSpecs.characteristicNameLookup(gattCharacteristic.getUuid()));
-                                                    System.out.println(", VALUE: "+gattCharacteristic.getWriteType());
+                                            for (int i=0; i<services.length(); i++) {
+                                                String service = services.getJSONObject(i).getString("uuid");
+                                                BluetoothGattService bgs = gatt.getService(UUID.fromString(service));
+                                                if (bgs != null) {
+                                                    JSONArray characteristics = services.getJSONObject(i).getJSONArray("characteristics");
+                                                    for (int j = 0; j < characteristics.length(); j++) {
+                                                        try {
+                                                            characteristicsList.add(bgs.getCharacteristic(UUID.fromString(characteristics.getJSONObject(j).getString("uuid"))));
+                                                        } catch (Exception e) { e.printStackTrace(); }
+                                                    }
                                                 }
                                             }
-                                        } catch (Exception e) {e.printStackTrace();}
+                                            characteristicReader(gatt,0);
+                                        } catch (Exception e) { e.printStackTrace(); }
                                     } else {
                                         Log.w(tag, "RAWR: onServicesDiscovered received: " + status);
                                     }
-                                    mBluetoothGatt.disconnect();
-                                    mBluetoothGatt.close();
                                 }
 
                                 @Override
                                 public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
                                     super.onCharacteristicRead(gatt, characteristic, status);
+                                    final JSONObject chara = new JSONObject();
+                                    try {
+                                        chara.put("service", characteristic.getService().getUuid().toString());
+                                        chara.put("characteristic", characteristic.getUuid().toString());
+                                        chara.put("value", getHexString(characteristic.getValue()));
+                                    } catch (Exception e) {e.printStackTrace();}
+                                    charArray.put(chara);
+                                    characteristicReader(gatt,characteristicsList.indexOf(characteristic)+1);
+                                }
+
+                                private void characteristicReader(BluetoothGatt gatt, Integer index) {
+                                    if (index < characteristicsList.size()) {
+                                        if (!gatt.readCharacteristic(characteristicsList.get(index)))
+                                            characteristicReader(gatt, index + 1);
+                                    } else {
+                                        try {
+                                            final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + responseJSON.get("device_id") + "\"}");
+                                            reResponse.put("ATTRIBUTES", charArray);
+                                            System.out.println("RSEND : " + reResponse);
+                                            final StringEntity entity2 = new StringEntity(reResponse.toString());
+                                            entity2.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                                            clientx.post(getBaseContext(), "http://gatewaycloud.elasticbeanstalk.com/", entity2, "application/json", asyncResponder);
+                                        } catch (Exception e) { e. printStackTrace();}
+                                        gatt.disconnect();
+                                        gatt.close();
+                                    }
                                 }
                             });
                         }
-                        catch(Exception e){ e.printStackTrace();}
-                    }
+                    } catch(Exception e){ e.printStackTrace();}
                 }
             });
 
@@ -549,6 +589,11 @@ public class Gateway extends PreferenceActivity {
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
+
+    private AsyncHttpResponseHandler asyncResponder = new TextHttpResponseHandler() {
+        @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { System.out.println("ASYNC RESPONSE : " + responseString); }
+        @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, String responseString) { System.out.println("ASYNC RESPONSE : " + responseString); }
+    };
 
 //    String mCurrentPhotoPath;
 
@@ -907,7 +952,6 @@ public class Gateway extends PreferenceActivity {
                 @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                 @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
             });
-            System.out.println("blah" + gatdProgramParams);
         } catch (Exception e) {}
         Log.i("NOAH_POSTING_PROGRAM: ", gatdProgramParams.toString());
     }
@@ -931,9 +975,11 @@ public class Gateway extends PreferenceActivity {
             };
 
     public static String getHexString(byte[] buf) {
-        StringBuffer sb = new StringBuffer();
-        for (byte b : buf) sb.append(String.format("%02X", b));
-        return sb.toString();
+        if (buf != null) {
+            StringBuffer sb = new StringBuffer();
+            for (byte b : buf) sb.append(String.format("%02X", b));
+            return sb.toString();
+        } else return "";
     }
 
     public void parseStuff(BluetoothDevice device, int rssi, byte[] scanRecord) {
