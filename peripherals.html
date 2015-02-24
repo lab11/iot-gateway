@@ -1,6 +1,7 @@
 <html>
   <head>
     <title>BLE Device Log</title>
+    <meta charset="UTF-8">
     <script src="http://gatd.eecs.umich.edu/bower_components/socket.io-client/dist/socket.io.min.js"></script> 
     <script src="http://gatd.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script> 
     <script src="http://netdna.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
@@ -40,9 +41,15 @@
       </div>
     </div>
     <script>
-    data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"}; services = [];
+    data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"}; services = {}; known = {};
     $(function () { $('#table').bootstrapTable({ data: data }); });
     $.getJSON( "json/services.json", function( data ) {services=data;});
+    $.getJSON( "json/known.json", function( data ) {known=data;});
+    stringify = function (arr) {
+      str = '';
+      for (i = 0; i < arr.length; i++)  str+=String.fromCharCode(arr[i]);
+      return str;
+    }
     onload = function() {
       socket = io.connect('gatd.eecs.umich.edu:8084/stream');
       socket.on('connect', function (dat) { 
@@ -50,26 +57,38 @@
       });
       socket.on('data', function (dat) {
         // if (typeof dat["services"] != 'undefined') {
-          if (dat.time > t_end) { console.log(dat);
+          if (dat.time > t_end) { 
+            // console.log(dat);
             t_end = dat.time;
-            dat.TIME = new Date(parseInt(dat["time"])).toLocaleString('en-US', { hour12: false });console.log(dat.TIME);
+            dat.TIME = new Date(parseInt(dat["time"])).toLocaleString('en-US', { hour12: false });
             dat.NAME = dat.advertisement.localName;
             dat.ADV = "<ul>";
-            for (n in dat.advertisement) dat.ADV += "<li><b>" + n + "</b> : " + JSON.stringify(dat.advertisement[n],null,4) + "</li>";
+            for (n in dat.advertisement) {
+              if (n=="manufacturerData" && dat.advertisement[n].type=="Buffer") {
+                hex = (dat.advertisement[n].data.map(function (x) {return x.toString(16);})).join("");
+                str = stringify(dat.advertisement[n].data);
+                dat.ADV += "<li><b>" + n + "</b> : \"" + hex + "\"</li>";
+              }
+              else dat.ADV += "<li><b>" + n + "</b> : " + JSON.stringify(dat.advertisement[n],null,4) + "</li>";
+            } 
             dat.ADV += "</ul>"
               // JSON.stringify(dat.advertisement,null,2);
             serv = "<ul>";
             for (n in dat.services) {
               service = dat.services[n];
               serv += "<li>" + (service.name || service.uuid) + "<ul>";
-              for (m in service.characteristics) serv += "<li>" + (service.characteristics[m].name || service.characteristics[m].uuid) + "</li>";
+              for (m in service.characteristics) {
+                serv += "<li>" + (service.characteristics[m].name || service.characteristics[m].uuid) + "</li>";
+                if (service.characteristics[m].uuid=="2a00" && !dat.NAME) dat.NAME = service.characteristics[m].stringValue; 
+              } 
               serv += "</ul></li>";
             }
             for (n in dat.advertisement.serviceUuids) {
               service = dat.advertisement.serviceUuids[n];
               serv += "<li>" + ((typeof services[service])!="undefined" ? services[service].name : service) + "</li>";
+              if (!dat.NAME) dat.NAME = known[service];
             }
-            for (n in dat.advertisement.serviceData) {
+            for (n in dat.advertisement.serviceData) { 
               service = dat.advertisement.serviceData[n];
               serv += "<li>" + ((typeof services[service.uuid])!="undefined" ? services[service.uuid].name : service.uuid) + "</li>";
             }
