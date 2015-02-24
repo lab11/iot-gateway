@@ -89,34 +89,4 @@
   , "1820" : { "name" : "Internet Protocol Support"
              , "type" : "org.bluetooth.service.internet_protocol_support"
              }   
-  // , "8880" : { "name" : "MetaWatch"
-  //            , "type" : "nonstandard"
-  //            }
-  // , "ff10" : { "name" : "RoboSmart Light Bulb"
-  //            , "type" : "nonstandard"
-  //            }   
-  // , "ff20" : { "name" : "RoboSmart Light Bulb"
-  //            , "type" : "nonstandard"
-  //            } 
-  // , "fff0" : { "name" : "isSmart Light Bough"
-  //            , "type" : "nonstandard"
-  //            }  
-  // , "39e1fa0084a811e2afba0002a5d5c51b" : { "name" : "Parrot Flower Power (Non-Standard)"
-  //            , "type" : "nonstandard"
-  //            }
-  // , "426c7565746f6f74682042756c620000" : { "name" : "Bluetooth Bulb (Non-Standard)"
-  //            , "type" : "nonstandard"
-  //            }
-  // , "4b455254747211e1a5750002a5d58001" : { "name" : "COOKOO Watch (Non-Standard)"
-  //            , "type" : "nonstandard"
-  //            }
-  // , "6a8730836c064dfabb5469b2240f9e9f" : { "name" : "tod (Non-Standard)"
-  //            , "type" : "nonstandard"
-  //            }
-  // , "adabfb006e7d4601bda2bffaa68956ba" : { "name" : "Fitbit (Non-Standard)"
-  //            , "type" : "nonstandard"
-  //            }  
-  // , "bec26202a8d84a9480fc9ac1de37daa6" : { "name" : "StickNFind (Non-Standard)"
-  //            , "type" : "nonstandard"
-  //            } 
 }
