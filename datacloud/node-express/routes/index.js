@@ -49,11 +49,11 @@ router.post('/', function(req, res) {
             }));
         } else {
             res.send("RE-RESPOND SUCCESSFUL! DISCONNECT BLE NOW!");
-            data = {"ID":req.body.DEVICE_ID,"FirmwareVersion":hex2a(req.body.ATTRIBUTES[0].value)}
+            data = {"ID":req.body.DEVICE_ID,"version":hex2a(req.body.ATTRIBUTES[0].value)}
             for (i=1; i<req.body.ATTRIBUTES.length; i++) {
                 if (req.body.ATTRIBUTES[i].value.length) {
                     var translated = hex2a(req.body.ATTRIBUTES[i].value).split('{')[1].split('}')[0].split(':');
-                    data[translated[0]] = translated[1];
+                    data[translated[0].split("\"")[1].toLowerCase()] = translated[1];
                 }
             }
             request.post({
