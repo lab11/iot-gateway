@@ -9,8 +9,8 @@
     <link href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.css" rel="stylesheet" type="text/css">
     <style>
         html { height:100%; margin:0;}
-        body { font-family:'Helvetica Neue'; font-weight:200; font-size:small; text-align:center; height:100%; overflow:hidden;}
-        table { font-family:'Helvetica Neue'; font-weight:200; font-size:small; }
+        body { font-family:'Helvetica Neue'; font-weight:200; font-size:small; height:100%; overflow:hidden;}
+        table { font-family:'Helvetica Neue'; font-weight:200; font-size:small; cursor:pointer; }
         ul {padding-left:15px; margin-bottom:0;}
         b {font-weight: 500;}
     </style>
@@ -29,6 +29,15 @@
                   </tr>
               </thead>
           </table>
+    </div>
+    <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header" style="font-weight:bold;"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button><br /></div>
+          <div class="modal-body"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></div>
+        </div>
+      </div>
     </div>
     <script>
     data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"}
@@ -63,6 +72,12 @@
             $('#table').bootstrapTable('load', data );
           }
         // } 
+        $("tr").click(function(){
+          index = $(this).attr("data-index");
+          obj = data[index]; delete obj.TIME; delete obj.NAME; delete obj.ADV; delete obj.SERV; delete obj.LOC;
+          $(".modal-body").html("<pre>"+JSON.stringify(obj,null,4)+"</pre>");
+          $("#modal").modal('show');
+        });
       });
     }
     </script>
