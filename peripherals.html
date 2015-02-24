@@ -1,0 +1,70 @@
+<html>
+  <head>
+    <title>BLE Device Log</title>
+    <script src="http://gatd.eecs.umich.edu/bower_components/socket.io-client/dist/socket.io.min.js"></script> 
+    <script src="http://gatd.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script> 
+    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.js"></script>
+    <link href="http://netdna.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.css" rel="stylesheet" type="text/css">
+    <style>
+        html { height:100%; margin:0;}
+        body { font-family:'Helvetica Neue'; font-weight:200; font-size:small; text-align:center; height:100%; overflow:hidden;}
+        table { font-family:'Helvetica Neue'; font-weight:200; font-size:small; }
+        ul {padding-left:15px; margin-bottom:0;}
+        b {font-weight: 500;}
+    </style>
+  </head>
+  <body>
+    <div style="height:98%; padding:1%;">
+          <table id="table" data-sort-name="TIME" data-sort-order="desc">
+              <thead>
+                  <tr>
+                      <th data-field="uuid" data-sortable="true">ADDRESS</th>
+                      <th data-field="NAME" data-sortable="true">DEVICE</th>
+                      <th data-field="TIME" data-sortable="true">TIME</th>
+                      <th data-field="LOC" data-sortable="true">LOCATION</th>
+                      <th data-field="ADV"  data-sortable="true">ADVERTISEMENT</th>
+                      <th data-field="SERV" data-sortable="true">SERVICES</th>
+                  </tr>
+              </thead>
+          </table>
+    </div>
+    <script>
+    data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"}
+    $(function () { $('#table').bootstrapTable({ data: data }); });
+    onload = function() {
+      socket = io.connect('gatd.eecs.umich.edu:8084/stream');
+      socket.on('connect', function (dat) { 
+        socket.emit('query', {'profile_id':'SgYPCHTR5a','time': {'$gt': 1423958400},'_speedup': 100000000.0,'TYPE':'ble-device'}); 
+      });
+      socket.on('data', function (dat) {
+        // if (typeof dat["services"] != 'undefined') {
+          if (dat.time > t_end) { console.log(dat);
+            t_end = dat.time;
+            dat.TIME = new Date(parseInt(dat["time"])).toLocaleString('en-US', { hour12: false });console.log(dat.TIME);
+            dat.NAME = dat.advertisement.localName;
+            dat.ADV = "<ul>";
+            for (n in dat.advertisement) dat.ADV += "<li><b>" + n + "</b> : " + JSON.stringify(dat.advertisement[n],null,4) + "</li>";
+            dat.ADV += "</ul>"
+              // JSON.stringify(dat.advertisement,null,2);
+            serv = "<ul>";
+            for (n in dat.services) {
+              service = dat.services[n];
+              serv += "<li>" + (service.name || service.uuid) + "<ul>";
+              for (m in service.characteristics) serv += "<li>" + (service.characteristics[m].name || service.characteristics[m].uuid) + "</li>";
+              serv += "</ul></li>";
+            }
+            serv += "</ul>";
+            dat.SERV = serv;
+            dat.LOC = loc[dat.address] || "BBB 2909";
+            for (n in data) if(data[n].uuid===dat.uuid) data.splice(n,1);
+            data.unshift(dat);
+            $('#table').bootstrapTable('load', data );
+          }
+        // } 
+      });
+    }
+    </script>
+  </body>
+</html>
