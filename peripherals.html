@@ -40,8 +40,9 @@
       </div>
     </div>
     <script>
-    data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"}
+    data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"}; services = [];
     $(function () { $('#table').bootstrapTable({ data: data }); });
+    $.getJSON( "json/services.json", function( data ) {services=data;});
     onload = function() {
       socket = io.connect('gatd.eecs.umich.edu:8084/stream');
       socket.on('connect', function (dat) { 
@@ -63,6 +64,10 @@
               serv += "<li>" + (service.name || service.uuid) + "<ul>";
               for (m in service.characteristics) serv += "<li>" + (service.characteristics[m].name || service.characteristics[m].uuid) + "</li>";
               serv += "</ul></li>";
+            }
+            for (n in dat.advertisement.serviceUuids) {
+              service = dat.advertisement.serviceUuids[n];
+              serv += "<li>" + ((typeof services[service])!="undefined" ? services[service].name : service) + "</li>";
             }
             serv += "</ul>";
             dat.SERV = serv;
