@@ -6,6 +6,7 @@
     <script src="http://gatd.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script> 
     <script src="http://netdna.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.js"></script>
+    <script src="json/gatt.js"></script>
     <link href="http://netdna.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.4.0/bootstrap-table.min.css" rel="stylesheet" type="text/css">
     <style>
@@ -41,7 +42,7 @@
       </div>
     </div>
     <script>
-    data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"}; services = {}; known = {};
+    data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"};
     $(function () { $('#table').bootstrapTable({ data: data }); });
     $.getJSON( "json/services.json", function( data ) {services=data;});
     $.getJSON( "json/known.json", function( data ) {known=data;});
