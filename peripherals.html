@@ -44,8 +44,6 @@
     <script>
     data = []; t_end = 0; loc = {"281473061251561":"BBB Atrium","281473061252076":"BBB 2nd Floor"};
     $(function () { $('#table').bootstrapTable({ data: data }); });
-    $.getJSON( "json/services.json", function( data ) {services=data;});
-    $.getJSON( "json/known.json", function( data ) {known=data;});
     stringify = function (arr) {
       str = '';
       for (i = 0; i < arr.length; i++)  str+=String.fromCharCode(arr[i]);
