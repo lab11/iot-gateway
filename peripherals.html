@@ -18,19 +18,20 @@
     </style>
   </head>
   <body>
-    <div style="height:98%; padding:1%;">
-          <table id="table" data-sort-name="TIME" data-sort-order="desc">
-              <thead>
-                  <tr>
-                      <th data-field="uuid" data-sortable="true">ADDRESS</th>
-                      <th data-field="NAME" data-sortable="true">DEVICE</th>
-                      <th data-field="TIME" data-sortable="true">TIME</th>
-                      <th data-field="LOC" data-sortable="true">LOCATION</th>
-                      <th data-field="ADV"  data-sortable="true">ADVERTISEMENT</th>
-                      <th data-field="SERV" data-sortable="true">SERVICES</th>
-                  </tr>
-              </thead>
-          </table>
+    <div style="height:90%; padding:1%;">
+      <div id="toolbar" class="btn-group"><button type="button" class="btn btn-default disabled" id="count"># Peripherals</button></div>
+      <table id="table" data-sort-name="TIME" data-sort-order="desc" data-search="true" data-toolbar="#toolbar">
+          <thead>
+              <tr>
+                  <th data-field="uuid" data-sortable="true">ADDRESS</th>
+                  <th data-field="NAME" data-sortable="true">DEVICE</th>
+                  <th data-field="TIME" data-sortable="true">TIME</th>
+                  <th data-field="LOC" data-sortable="true">LOCATION</th>
+                  <th data-field="ADV"  data-sortable="true">ADVERTISEMENT</th>
+                  <th data-field="SERV" data-sortable="true">SERVICES</th>
+              </tr>
+          </thead>
+      </table>
     </div>
     <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
@@ -97,6 +98,7 @@
             for (n in data) if(data[n].uuid===dat.uuid) data.splice(n,1);
             data.unshift(dat);
             $('#table').bootstrapTable('load', data );
+            $('#count').html(data.length + " Peripherals")
           }
         // } 
         $("tr").click(function(){
