@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <SwitchPreference android:title="Advertise Now"
+    <SwitchPreference android:title="ADVERTISE NOW"
         android:key="advertise_switch"
         android:defaultValue="false"/>
     <edu.umich.eecs.lab11.peripheral.BetterEditText
@@ -10,8 +10,6 @@
         android:summary="%s"
         android:title="Advertisement Value"
         android:selectable="false"/>
-    <Preference android:selectable="false"/>
-    <Preference android:title="ADVERTISEMENT OPTIONS" android:selectable="false" />
     <PreferenceCategory android:title="Data Transport">
         <edu.umich.eecs.lab11.peripheral.BetterEditText
             android:defaultValue="200104701F1013200000000000000002"
@@ -30,7 +28,7 @@
             android:key="data_rate"
             android:max="7"/>
     </PreferenceCategory>
-    <PreferenceCategory android:title="Reliability">
+    <PreferenceCategory android:title="Quality of Service">
         <com.robobunny.SeekBarPreference
             android:title="Program Level (See Spec for Def)"
             android:defaultValue="0"

@@ -7,14 +7,20 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
@@ -28,6 +34,7 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -36,29 +43,34 @@ import android.widget.Toast;
 
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
+import com.loopj.android.http.JsonHttpResponseHandler;
+import com.loopj.android.http.TextHttpResponseHandler;
 
+import org.apache.http.Header;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HTTP;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 //import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 //import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
 //import com.google.android.gms.common.GooglePlayServicesAvailabilityException;
 //import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 
-
-
-public class Gateway extends PreferenceActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
+public class Gateway extends PreferenceActivity {
 
     private ArrayList<String> programValid = new ArrayList<String>();
     private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>();
@@ -66,16 +78,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private ArrayList<String> programURL = new ArrayList<String>();
     private ArrayList<Integer> programSizesTotal = new ArrayList<Integer>();
 
-    private Map<String,BluetoothDevice> deviceMap;
+    private Map<String,BluetoothDevice> deviceMap = new HashMap<String, BluetoothDevice>();
+
+    private PackageManager packageManager;
 
     private Peripheral cur_peripheral;
 
-    private JSONObject jsonParams;
-    private JSONObject programJSONParams;
-
-    private final boolean DEMO = false; //turns on or off the toast reports on failures
-
     private SensorManager mSensorManager;
+    private HashMap<Integer,String> mSensors;
 
     private final static String INTENT_TRUE = "TRUE";
     private final static String INTENT_FALSE = "FALSE";
@@ -91,10 +101,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private LocationManager locationManager;
 
     private BluetoothAdapter mBluetoothAdapter;
+    private BluetoothGatt mBluetoothGatt;
     private boolean mScanning;
     private Handler mHandler;
     private boolean paused;
     private static AsyncHttpClient client = new AsyncHttpClient();
+    private static AsyncHttpClient clientx = new AsyncHttpClient();
 
     private final String tag = "tag";
     private final String top = "top";
@@ -110,25 +122,20 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private String final_binary_str;
 
     private String popup_text_string = "";
+    private String popup_pic_string = "";
 
     private boolean waitingForOffload;
 
     private static final int REQUEST_ENABLE_BT = 1;
-    private static final int DEMO_STR = 0;
+    private static final int REQUEST_IMAGE_CAPTURE = 2;
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
     private SharedPreferences cur_settings;
-
-    // META data to pass along
-//    private String gateway_id = Secure.getString(getApplicationContext().getContentResolver(),
-//            Secure.ANDROID_ID); //TODO Known issues with this method... move to an DB call that we keep... can be null
-
 
     private String adv_id;
     private String gateway_first_contact_time;
     private String gateway_transmit_time;
     private String gate_size_transmit;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,9 +145,15 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         cur_peripheral = new Peripheral();
 
-        jsonParams = new JSONObject();
+        packageManager = getApplicationContext().getPackageManager();
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        System.out.println("MAGIC : " + mSensorManager.getSensorList(Sensor.TYPE_ALL).toString());
+        mSensors = new HashMap<Integer, String>();
+        mSensors.put(Sensor.TYPE_AMBIENT_TEMPERATURE,"");
+        mSensors.put(Sensor.TYPE_RELATIVE_HUMIDITY,"");
+        mSensors.put(Sensor.TYPE_ACCELEROMETER,"");
+        mSensors.put(Sensor.TYPE_LIGHT,"");
 
         programValid.add("PayMe");
         programValid.add("YOUPAY");
@@ -181,20 +194,68 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
+        // fire an intent to display a dialog asking the user to grant permission to enable it.
+        if (!mBluetoothAdapter.isEnabled()) {
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+        }
+        paused = false;
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+        mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+
+        // Initializes list view adapter.
+        scanLeDevice(true);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mScanning = false;
+        paused = true;
+        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        mSensorManager.unregisterListener(mSensorListener);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // User chose not to enable Bluetooth.
+        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
+            finish();
+            return;
+        }
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            Bundle extras = data.getExtras();
+            Bitmap bm = (Bitmap) extras.get("data");
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bm.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+            popup_pic_string = Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT);
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
     /**
      * Settings Fragment: Pulls information from preference xml & automatically updates on change
      */
     public static class GatewayFragment extends PreferenceFragment {
+        private SensorManager mSensorManager;
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.preferences);
+            mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) == null) getPreferenceManager().findPreference("temp_agreement").setEnabled(false);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY) == null) getPreferenceManager().findPreference("humidity_agreement").setEnabled(false);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) getPreferenceManager().findPreference("accel_agreement").setEnabled(false);
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) == null) getPreferenceManager().findPreference("ambient_agreement").setEnabled(false);
         }
-    }
-
-    @Override
-    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
-
     }
 
 
@@ -214,148 +275,93 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         Log.w(top, "parse()");
 
         if (!cur_settings.getBoolean("master_agreement", false)) {
-            if (DEMO) {
-                Toast.makeText(this, "GATEWAY NOT ENABLED! STOPPING", Toast.LENGTH_SHORT).show();
-            }
-
             Log.w("POINT", "GATEWAY NOT ENABLED!");
             return; //BREAK OUT
         }
         cur_peripheral.empty(); //NEW PACKET
 
-        if (a.equals("")) {
-            // Do the actual parsing
-            // TODO: change these to actual offsets... hardcode hack
-            final_binary_str = hexToBinary(final_str);
-            String IP = final_binary_str.substring(0, 64);
-            IP = String.format("%21X", Long.parseLong(IP, 2));
-            String TRANSPARENT = final_binary_str.substring(64, 65);
-            String RATE = final_binary_str.substring(65, 68);
-            String QOS = final_binary_str.substring(68, 72);
-            String SENSORS = final_binary_str.substring(72, 80);
-            String PROGRAM_TYPE = final_binary_str.substring(80, 84);
-            String DATA = final_binary_str.substring(84);
+        String t = a.substring(2,4) + a.substring(0,2) + a.substring(4,32) + "    PARSE_:" + a.substring(32);
+        Log.w("PARSING A REAL THING!", t);
 
 
-            if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
-                Log.w("POINT", "TRANSPARENT FORWARD");
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()] = QOS;
-                cur_peripheral.TRANSPARENT = true;
+        String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,32);
+//        Log.w("PARSE_IP", IP);
 
-            } else {
-                Log.w("POINT", "PEEK FORWARD");
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()] = QOS;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()] = devName;
-                cur_peripheral.TRANSPARENT = false;
-            }
-            run_forward(TRANSPARENT);
+
+        final_binary_str = hexToBinary(a.substring(32));
+        Log.w("PARSE_FINAL", final_binary_str);
+        String TRANSPARENT = final_binary_str.substring(0, 1);
+        String RATE = final_binary_str.substring(1, 4);
+        String QOS = final_binary_str.substring(4, 8);
+        String SENSORS = final_binary_str.substring(8, 16);
+        String PROGRAM_TYPE = final_binary_str.substring(16, 20);
+        String DATA = final_binary_str.substring(20);
+
+//        Log.w("PARSE_TRANSPARENT", TRANSPARENT);
+//        Log.w("PARSE_RATE", RATE);
+//        Log.w("PARSE_QOS", QOS);
+//        Log.w("PARSE_SENSORS", SENSORS);
+//        Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
+//        Log.w("PARSE_DATA", DATA);
+
+        if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
+            Log.w("POINT", "TRANSPARENT FORWARD");
+            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
+            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
+            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
+            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
+            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
+            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
+            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()] = QOS;
+            cur_peripheral.TRANSPARENT = true;
+
         } else {
-            String t = a.substring(2,4) + a.substring(0,2) + a.substring(4,32) + "    PARSE_:" + a.substring(32);
-            Log.w("PARSING A REAL THING!", t);
-
-
-            String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,32);
-            Log.w("PARSE_IP", IP);
-
-
-            final_binary_str = hexToBinary(a.substring(32));
-            Log.w("PARSE_FINAL", final_binary_str);
-            String TRANSPARENT = final_binary_str.substring(0, 1);
-            String RATE = final_binary_str.substring(1, 4);
-            String QOS = final_binary_str.substring(4, 8);
-            String SENSORS = final_binary_str.substring(8, 16);
-            String PROGRAM_TYPE = final_binary_str.substring(16, 20);
-            String DATA = final_binary_str.substring(20);
-
-            Log.w("PARSE_TRANSPARENT", TRANSPARENT);
-            Log.w("PARSE_RATE", RATE);
-            Log.w("PARSE_QOS", QOS);
-            Log.w("PARSE_SENSORS", SENSORS);
-            Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
-            Log.w("PARSE_DATA", DATA);
-
-            if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
-                Log.w("POINT", "TRANSPARENT FORWARD");
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
-                cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()] = QOS;
-                cur_peripheral.TRANSPARENT = true;
-
-            } else {
-                Log.w("POINT", "PEEK FORWARD");
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()] = QOS;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
-                cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()] = devName;
-                cur_peripheral.TRANSPARENT = false;
-            }
-
-            //          debug cloud
-            try {
-                JSONObject gatdParams = new JSONObject();
-                gatdParams.put("TYPE", "debug");
-                gatdParams.put("DEVICE_ID", devAddress);
-                gatdParams.put("NAME", devName);
-                gatdParams.put("RSSI", rssi);
-                gatdParams.put("DESTINATION", IP);
-                gatdParams.put("TRANSPARENT",TRANSPARENT);
-                gatdParams.put("RATE", RATE);
-                gatdParams.put("QOS", QOS);
-                if (TRANSPARENT.equals("0")) {
-                    gatdParams.put("SENSORS", SENSORS);
-                }
-                gatdParams.put("PROGRAM", PROGRAM_TYPE);
-                gatdParams.put("DATA", DATA);
-                StringEntity entity = new StringEntity(gatdParams.toString());
-                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-                });
-                System.out.println("blah"+gatdParams);
-            } catch (Exception e) {}
-
-            run_forward(TRANSPARENT);
-
-
-
+            Log.w("POINT", "PEEK FORWARD");
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()] = QOS;
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
+            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()] = devName;
+            cur_peripheral.TRANSPARENT = false;
         }
-    }
 
+        //          debug cloud
+        try {
+            JSONObject gatdParams = new JSONObject();
+            gatdParams.put("TYPE", "debug");
+            gatdParams.put("DEVICE_ID", devAddress);
+            gatdParams.put("NAME", devName);
+            gatdParams.put("RSSI", rssi);
+            gatdParams.put("DESTINATION", IP);
+            gatdParams.put("TRANSPARENT",TRANSPARENT);
+            gatdParams.put("RATE", RATE);
+            gatdParams.put("QOS", QOS);
+            if (TRANSPARENT.equals("0")) {
+                gatdParams.put("SENSORS", SENSORS);
+            }
+            gatdParams.put("PROGRAM", PROGRAM_TYPE);
+            gatdParams.put("DATA", DATA);
+            StringEntity entity = new StringEntity(gatdParams.toString());
+            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+            client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
+                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
+                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
+            });
+        } catch (Exception e) {}
+
+        run_forward(TRANSPARENT);
+
+    }
 
     public boolean run_forward(String TRANSPARENT) {
 
@@ -366,9 +372,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 Log.w("POINT", "SENSORS DONE!");
                 peripheral_program_level = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()], 2);
             } else {
-                if (DEMO) {
-                    Toast.makeText(this, "SENSORS NOT ABLE! Stopping", Toast.LENGTH_SHORT).show();
-                }
                 Log.w("POINT", "SENSORS NOT ABLE!");
                 return false;
             }
@@ -380,21 +383,18 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     public boolean switch_grant(Integer peripheral_program_level) {
-        Log.w(top, "switch_grant()");
+//        Log.w(top, "switch_grant()");
 
         Integer user_pay_floor = cur_settings.getInt("min_pay_rate", 0);
 
-        Log.w("SWITCH_GRANT_periph_level", peripheral_program_level.toString());
-        Log.w("SWITCH_GRANT_user_pay_floor", user_pay_floor.toString());
+        Log.w("SWITCH_GRANT_prog_level", peripheral_program_level.toString());
+        Log.w("SWITCH_GRANT_pay_floor", user_pay_floor.toString());
 
 
         if (peripheral_program_level == 0) { // no program supported by peripheral
             if (user_pay_floor == 0) { // user does not want monetary program
                 schedule();
             } else {
-                if (DEMO) {
-                    Toast.makeText(this, "PROGRAM NOT SUPPORTED! Stopping", Toast.LENGTH_SHORT).show();
-                }
                 Log.w("POINT", "Program NOT SUPPORTED"); // peripheral can't pay
                 return false;
             }
@@ -412,9 +412,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     return false; //pay as much as the peripheral wants
                 schedule();
             } else {
-                if (DEMO) {
-                    Toast.makeText(this, "PERIPHERAL CAN'T PAY! Stopping", Toast.LENGTH_SHORT).show();
-                }
                 Log.w("POINT", "Peripheral CAN'T PAY"); // peripheral can't pay
                 return false;
             }
@@ -423,13 +420,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     }
 
     private boolean do_monetary_program(Integer pay_level) {
-        Log.w(top, "do_monetary_program(Integer pay_level)");
+//        Log.w(top, "do_monetary_program(Integer pay_level)");
         String program_name = cur_settings.getString("program_text", "PayMe").trim();
         Log.w("program_debug", program_name);
         Integer program_index = programValid.lastIndexOf(program_name);
         //Log.w("program_debug", program_index.toString());
         Log.w("program_debug_pay_level", String.valueOf(pay_level));
-        Log.w("program_debug_program_max_pay", String.valueOf(programMaxPay.get(program_index)));
+        Log.w("program_debug_max_pay", String.valueOf(programMaxPay.get(program_index)));
 
         if (program_index != -1) {
             if (programCredentials.get(program_index)) {
@@ -437,38 +434,25 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     program_name_to_send = program_name;
                     program_pay_to_send = pay_level.toString();
                     program_url_to_send = programURL.get(program_index);
-
                 } else {
-                    if (DEMO) {
-                        Toast.makeText(this, "PROGRAM CAN'T PAY PAY LEVEL! Stopping", Toast.LENGTH_SHORT).show();
-                    }
                     Log.w("POINT", "Program CAN'T PAY PAY LEVEL"); // peripheral can't pay
                     return false;
                 }
             } else {
-                if (DEMO) {
-                    Toast.makeText(this, "PROGRAM NOT CREDENTIALED! Stopping", Toast.LENGTH_SHORT).show();
-                }
                 Log.w("POINT", "Program NOT CREDENTIALED"); // peripheral can't pay
                 return false;
             }
         } else {
-            if (DEMO) {
-                Toast.makeText(this, "PROGRAM NAME NOT FOUND! Stopping", Toast.LENGTH_SHORT).show();
-            }
             Log.w("POINT", "Program NAME NOT FOUND"); // peripheral can't pay
             return false;
-        }
-        if (DEMO) {
-            Toast.makeText(this, "PROGRAM OK", Toast.LENGTH_SHORT).show();
         }
         Log.w("POINT", "Program OK");
         return true;
     }
 
     private void schedule() {
-        Log.w(top, "schedule()");
-        Log.w("POINT", "scheduling is not implemented");
+//        Log.w(top, "schedule()");
+//        Log.w("POINT", "scheduling is not implemented");
         post();
     }
 
@@ -482,33 +466,113 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 gatdDataParams.put("DEVICE_ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
                 gatdDataParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
                 gatdDataParams.put("DATA", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]);
+                gatdDataParams.put("QOS", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()]);
             } else {
                 for (int i = 0; i < cur_peripheral.DATA_TO_PEEK.size(); i++) {
                     String[] key_val = cur_peripheral.DATA_TO_PEEK.get(i).split(" ");
                     gatdDataParams.put(key_val[0], key_val[1]);
-                    //Log.i("NOAH DATA TO PEEK", key_val[0]);
-                    //Log.i("NOAH DATA TO PEEK", key_val[1]);
                 }
                 gatdDataParams.put("DEVICE_ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
                 gatdDataParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
                 gatdDataParams.put("DATA", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()]);
+                gatdDataParams.put("QOS", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()]);
             }
-            StringEntity entity = new StringEntity(gatdDataParams.toString());
+            final StringEntity entity = new StringEntity(gatdDataParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-            client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                @Override
-                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
-//                    if (Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()], 2) > 7) {
-//                        connect();
-//                    }
-//                        try{
-//                            BluetoothGatt mBluetoothGatt = deviceMap.get(gatdDataParams.getString("DEVICE_ID")).connectGatt(this, false, mGattCallback);
-//                        }
-//                        catch(Exception e){System.out.println("THOMAS FAIL");}
-                }
+            client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new TextHttpResponseHandler() {
+                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { }
+                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, String responseString) { }
+            });
+
+            client.post(getBaseContext(), "http://gatewaycloud.elasticbeanstalk.com/", entity, "application/json", new TextHttpResponseHandler() {
+
+                public BluetoothDevice device = deviceMap.get(gatdDataParams.getString("DEVICE_ID"));
+                public Integer qos = Integer.parseInt(gatdDataParams.getString("QOS"), 2);
 
                 @Override
-                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
+                public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { }
+
+                @Override
+                public void onSuccess(int statusCode, org.apache.http.Header[] headers, final String responseString) {
+                    System.out.println("RESPONSE : " + responseString);
+                    if (responseString.length()<2) return;
+                    try {
+                        final JSONObject responseJSON = new JSONObject(responseString);
+                        if (qos >= 7 && responseJSON.has("services") && responseJSON.has("device_id") && device.getAddress().equals(responseJSON.getString("device_id"))) {
+                            mBluetoothGatt = device.connectGatt(getBaseContext(), false, new BluetoothGattCallback() {
+                                JSONArray services = responseJSON.getJSONArray("services");
+                                JSONArray charArray = new JSONArray();
+                                ArrayList<BluetoothGattCharacteristic> characteristicsList = new ArrayList<BluetoothGattCharacteristic>();
+
+                                @Override
+                                public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+                                    super.onConnectionStateChange(gatt, status, newState);
+                                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                                        Log.i(tag, "RAWR: Connected to GATT server.");
+                                        gatt.discoverServices();
+                                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                                        Log.i(tag, "RAWR: Disconnected from GATT server.");
+                                    }
+                                }
+
+                                @Override
+                                public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+                                    super.onServicesDiscovered(gatt, status);
+                                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                                        Log.w(tag, "RAWR: Service Discovery Successful: ");
+                                        try {
+                                            for (int i=0; i<services.length(); i++) {
+                                                String service = services.getJSONObject(i).getString("uuid");
+                                                BluetoothGattService bgs = gatt.getService(UUID.fromString(service));
+                                                if (bgs != null) {
+                                                    JSONArray characteristics = services.getJSONObject(i).getJSONArray("characteristics");
+                                                    for (int j = 0; j < characteristics.length(); j++) {
+                                                        try {
+                                                            characteristicsList.add(bgs.getCharacteristic(UUID.fromString(characteristics.getJSONObject(j).getString("uuid"))));
+                                                        } catch (Exception e) { e.printStackTrace(); }
+                                                    }
+                                                }
+                                            }
+                                            characteristicReader(gatt,0);
+                                        } catch (Exception e) { e.printStackTrace(); }
+                                    } else {
+                                        Log.w(tag, "RAWR: onServicesDiscovered received: " + status);
+                                    }
+                                }
+
+                                @Override
+                                public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+                                    super.onCharacteristicRead(gatt, characteristic, status);
+                                    final JSONObject chara = new JSONObject();
+                                    try {
+                                        chara.put("service", characteristic.getService().getUuid().toString());
+                                        chara.put("characteristic", characteristic.getUuid().toString());
+                                        chara.put("value", getHexString(characteristic.getValue()));
+                                    } catch (Exception e) {e.printStackTrace();}
+                                    charArray.put(chara);
+                                    characteristicReader(gatt,characteristicsList.indexOf(characteristic)+1);
+                                }
+
+                                private void characteristicReader(BluetoothGatt gatt, Integer index) {
+                                    if (index < characteristicsList.size()) {
+                                        if (!gatt.readCharacteristic(characteristicsList.get(index)))
+                                            characteristicReader(gatt, index + 1);
+                                    } else {
+                                        try {
+                                            final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + responseJSON.get("device_id") + "\"}");
+                                            reResponse.put("ATTRIBUTES", charArray);
+                                            System.out.println("RSEND : " + reResponse);
+                                            final StringEntity entity2 = new StringEntity(reResponse.toString());
+                                            entity2.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                                            clientx.post(getBaseContext(), "http://gatewaycloud.elasticbeanstalk.com/", entity2, "application/json", asyncResponder);
+                                        } catch (Exception e) { e. printStackTrace();}
+                                        gatt.disconnect();
+                                        gatt.close();
+                                    }
+                                }
+                            });
+                        }
+                    } catch(Exception e){ e.printStackTrace();}
                 }
             });
 
@@ -523,88 +587,31 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 programSizesTotal.set(program_index, cur_total_size);
                 send_program();
             }
-        } catch (Exception e) {}
-        /*
-        try {
-            //jsonParams.put("id",);
-
-//            Info adInfo = null;
-//            try {
-//                adInfo = AdvertisingIdClient.getAdvertisingIdInfo(mContext);
-//
-//            } catch (IOException e) {
-//                // Unrecoverable error connecting to Google Play services (e.g.,
-//                // the old version of the service doesn't support getting AdvertisingId).
-//
-//            } catch (GooglePlayServicesAvailabilityException e) {
-//                // Encountered a recoverable error connecting to Google Play services.
-//
-//            } catch (GooglePlayServicesNotAvailableException e) {
-//                // Google Play services is not available entirely.
-//            }
-//            final String id = adInfo.getId();
-
-
-
-
-            StringEntity entity = new StringEntity(jsonParams.toString());
-            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-
-
-
-
-            client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                @Override
-                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
-                }
-
-                @Override
-                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
-                }
-            });
-
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        */
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
-    String mCurrentPhotoPath;
+    private AsyncHttpResponseHandler asyncResponder = new TextHttpResponseHandler() {
+        @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { System.out.println("ASYNC RESPONSE : " + responseString); }
+        @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, String responseString) { System.out.println("ASYNC RESPONSE : " + responseString); }
+    };
 
-    private File createImageFile() throws IOException {
-        // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES);
-        File image = File.createTempFile(
-                imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
-                storageDir      /* directory */
-        );
-        // Save a file: path for use with ACTION_VIEW intents
-        mCurrentPhotoPath = "file:" + image.getAbsolutePath();
-        return image;
-    }
+//    String mCurrentPhotoPath;
 
-    public void take_picture() {
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            File photoFile = null;
-            try {
-                photoFile = createImageFile();
-            } catch (IOException ex) {
-
-            }
-            if (photoFile != null) {
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT,
-                        Uri.fromFile(photoFile));
-                startActivityForResult(takePictureIntent, 1);
-            }
-        }
-    }
-
+//    private File createImageFile() throws IOException {
+//        // Create an image file name
+//        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+//        String imageFileName = "JPEG_" + timeStamp + "_";
+//        File storageDir = Environment.getExternalStoragePublicDirectory(
+//                Environment.DIRECTORY_PICTURES);
+//        File image = File.createTempFile(
+//                imageFileName,  /* prefix */
+//                ".jpg",         /* suffix */
+//                storageDir      /* directory */
+//        );
+//        // Save a file: path for use with ACTION_VIEW intents
+//        mCurrentPhotoPath = "file:" + image.getAbsolutePath();
+//        return image;
+//    }
 
     public boolean hasGPSDevice(Context context) {
         final LocationManager mgr = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
@@ -633,7 +640,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
         boolean intent_needed = false;
 
-
         String failable_hw = "";
         String sensor_access = "";
         boolean hasGPS = true;
@@ -648,19 +654,15 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         // 5. if user doesn't grant, adds to sensor_access to be skipped or not with level
 
         for (int i = Peripheral.PEEK_ENUM.gps.ordinal(); i <= Peripheral.PEEK_ENUM.ambient.ordinal(); i++) {
-            Log.w("sensor_debug", "TEST");
+//            Log.w("sensor_debug", "TEST");
             if (cur_peripheral.PEEK_FLAGS[i].equals("1")) {
                 if (i == Peripheral.PEEK_ENUM.accel.ordinal()) {
                     if (cur_settings.getBoolean("accel_agreement", true)) {
-                        Log.w("USER_AGREEMENT", "DOES ALLOW ACCEL");
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
-                            Log.w("sensor_debug", "adding accel to intent");
-                            intent.putExtra(INTENT_SENSOR_ACCEL, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT accel");
-                            failable_hw += " accel ";
-                        }
+                        Log.w("sensor_debug", "adding accel to intent");
+                        String key_val = "ACCELEROMETER ";
+                        String sensor = mSensors.get(Sensor.TYPE_ACCELEROMETER);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW ACCEL");
                         sensor_access += "accel";
@@ -677,14 +679,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     }
                 } else if (i == Peripheral.PEEK_ENUM.temp.ordinal()) {
                     if (cur_settings.getBoolean("temp_agreement", true)) {
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) != null) {
-                            Log.w("sensor_debug", "adding temp to intent");
-                            intent.putExtra(INTENT_SENSOR_TEMP, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT temp");
-                            failable_hw += " temp ";
-                        }
+                        Log.w("sensor_debug", "adding temp to intent");
+                        String key_val = "TEMPERATURE ";
+                        String sensor = mSensors.get(Sensor.TYPE_AMBIENT_TEMPERATURE);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW temp");
                         sensor_access += "temp";
@@ -693,15 +692,12 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     if (cur_settings.getBoolean("gps_agreement", true)) {
                         Log.w("sensor_debug", "adding gps to intent");
                         allowsGPS = true; //for a specific level
-                        PackageManager packageManager = getApplicationContext().getPackageManager();
                         hasGPS = packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS);
                         if (hasGPS) {
                             Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
                             String key_val = "LOCATION ";
                             key_val += loc.getLatitude()+","+loc.getLongitude()+","+loc.getAltitude();
                             cur_peripheral.DATA_TO_PEEK.add(key_val);
-                            //intent.putExtra(INTENT_SENSOR_GPS, INTENT_TRUE);
-                            //intent_needed = true;
                         } else {
                             Log.w("USER_AGREEMENT", "DOESNT SUPPORT gps");
                         }
@@ -710,14 +706,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     }
                 } else if (i == Peripheral.PEEK_ENUM.humidity.ordinal()) {
                     if (cur_settings.getBoolean("humidity_agreement", true)) {
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY) != null) {
-                            Log.w("sensor_debug", "adding humidity to intent");
-                            intent.putExtra(INTENT_SENSOR_HUMIDITY, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT humidity");
-                            failable_hw += "humidity";
-                        }
+                        Log.w("sensor_debug", "adding humidity to intent");
+                        String key_val = "HUMIDITY ";
+                        String sensor = mSensors.get(Sensor.TYPE_RELATIVE_HUMIDITY);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW humidity");
                         sensor_access += "humidity";
@@ -726,6 +719,13 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     if (cur_settings.getBoolean("user_camera_agreement", true)) {
                         Log.w("sensor_debug", "doing picture sensor");
                         do_popup_pic();
+                        String key_val = "IMAGE ";
+                        key_val += popup_pic_string;
+                        Log.w("sensor_debug", popup_pic_string);
+                        if (popup_pic_string.length()>0) {
+                            cur_peripheral.DATA_TO_PEEK.add(key_val);
+                            Log.w("sensor_debug", popup_pic_string);
+                        }
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW pic");
                         sensor_access += "pic";
@@ -746,14 +746,11 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                     }
                 } else if (i == Peripheral.PEEK_ENUM.ambient.ordinal()) {
                     if (cur_settings.getBoolean("ambient_agreement", true)) {
-                        if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null) {
-                            Log.w("sensor_debug", "adding ambient to intent");
-                            intent.putExtra(INTENT_SENSOR_AMBIENT, INTENT_TRUE);
-                            intent_needed = true;
-                        } else {
-                            Log.w("USER_AGREEMENT", "DOESNT SUPPORT ambient");
-                            failable_hw += "ambient";
-                        }
+                        Log.w("sensor_debug", "adding ambient to intent");
+                        String key_val = "LIGHT ";
+                        String sensor = mSensors.get(Sensor.TYPE_LIGHT);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW ambient");
                         sensor_access += "ambient";
@@ -808,7 +805,9 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public void do_popup_pic() {
         Log.w(top, "do_popup_pic");
-        take_picture();
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null)
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
     }
 
     public void do_popup_text() {
@@ -844,9 +843,23 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             }
         });
         alert.show();
-
-
     }
+
+    private SensorEventListener mSensorListener = new SensorEventListener() {
+        @Override
+        public final void onAccuracyChanged(Sensor sensor, int accuracy) { }
+
+        @Override
+        public final void onSensorChanged(SensorEvent event) {
+            Integer type = event.sensor.getType();
+            switch (type) {
+                case Sensor.TYPE_AMBIENT_TEMPERATURE: mSensors.put(type,event.values[0]+"C"); break;
+                case Sensor.TYPE_RELATIVE_HUMIDITY: mSensors.put(type,event.values[0]+"%"); break;
+                case Sensor.TYPE_ACCELEROMETER: mSensors.put(type,"["+event.values[0]+","+event.values[1]+","+event.values[2]+"]m/s^2"); break;
+                case Sensor.TYPE_LIGHT: mSensors.put(type,event.values[0]+"lx"); break;
+            }
+        }
+    };
 
     private BroadcastReceiver mServiceMessageReceiver = new BroadcastReceiver() {
         @Override
@@ -879,71 +892,6 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
 
     public void send_ack() {
         Log.w(top, "send_ack()");
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.gateway, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-        if (id == R.id.action_demo) {
-            Intent intent = new Intent(this, Demo.class);
-            intent.putExtra("FINAL_STR", "");
-            startActivityForResult(intent, 0);
-            //startActivityForResult(intent);
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
-        // fire an intent to display a dialog asking the user to grant permission to enable it.
-        if (!mBluetoothAdapter.isEnabled()) {
-            if (!mBluetoothAdapter.isEnabled()) {
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            }
-        }
-
-        paused = false;
-
-        // Initializes list view adapter.
-        scanLeDevice(true);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // User chose not to enable Bluetooth.
-        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
-            finish();
-            return;
-        }
-        if (requestCode == DEMO_STR && resultCode == Activity.RESULT_OK) {
-            final_str = data.getStringExtra("FINAL_STR");
-            Log.w(top, "HIT DEMO REQUEST");
-            this.parse("","",0,""); //FROM DEMO
-        }
-        super.onActivityResult(requestCode, resultCode, data);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        mScanning = false;
-        paused = true;
-        mBluetoothAdapter.stopLeScan(mLeScanCallback);
     }
 
     private void scanLeDevice(final boolean enable) {
@@ -1004,54 +952,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                 @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                 @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
             });
-            System.out.println("blah" + gatdProgramParams);
         } catch (Exception e) {}
         Log.i("NOAH_POSTING_PROGRAM: ", gatdProgramParams.toString());
-
-
-        /*
-        // incentive cloud
-        try {
-            JSONObject gatdParams = new JSONObject();
-            gatdParams.put("TYPE", "incentive");
-            gatdParams.put("DEVICE ID", devAddress);
-            gatdParams.put("NAME", devName);
-            gatdParams.put("PROGRAM_IP", IP);
-            gatdParams.put("PROGRAM_NAME", cur_settings.getString("program_text",""));
-            gatdParams.put("PROGRAM_PAY", cur_settings.getInt("min_pay_rate",-1));
-            gatdParams.put("TOTAL_SIZE", a.getBytes().length);
-            gatdParams.put("THIS_SIZE", a.getBytes().length);
-            StringEntity entity = new StringEntity(gatdParams.toString());
-            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-            client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-                @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-            });
-            System.out.println("blah"+gatdParams);
-        } catch (Exception e) {}
-        /*
-        try {
-            Integer program_index = programValid.lastIndexOf(program_name_to_send);
-            programJSONParams.put("program_name", program_name_to_send);
-            programJSONParams.put("size", program_cur_packet_size);
-            programJSONParams.put("total_size", programSizesTotal.get(program_index));
-
-            StringEntity entity = new StringEntity(programJSONParams.toString());
-            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-
-            client.post(getBaseContext(), programURL.get(program_index) "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
-                @Override
-                public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) {
-                }
-
-                @Override
-                public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) {
-                }
-            });
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        */
     }
 
 
@@ -1066,58 +968,18 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
                             try {
                                 Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
                                 parseStuff(device, rssi, scanRecord);
-                            } catch (Exception e) {
-                            }
-
-//                            try {
-//                                jsonParams.put("advertisement",getHexString(scanRecord));
-//                                jsonParams.put("device", (device.getName()!=null) ? device.getName() : "Unnamed" );
-//                                jsonParams.put("address", device.getAddress());
-//                                jsonParams.put("rssi", rssi);
-//                                System.out.println(getHexString(scanRecord));
-//                                StringEntity entity = new StringEntity(jsonParams.toString());
-//
-//                                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-//
-//
-//
-////                                if (!program_name_to_send.equals("")) { //there is a program
-////                                    Integer program_index = programValid.lastIndexOf(program_name_to_send);
-////                                    program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
-////                                    Integer cur_total_size = programSizesTotal.get(program_index);
-////                                    cur_total_size += program_cur_packet_size;
-////                                    programSizesTotal.set(program_index, cur_total_size);
-////                                    send_program();
-////                                }
-//
-//                                client.post(getBaseContext(),"http://35.2.100.25:4001", entity, "application/json", new AsyncHttpResponseHandler() {
-//                                    @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
-//                                    @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
-//                                });
-//
-//
-//                            } catch (Exception e) {
-//                                e.printStackTrace();
-//                            }
-
+                            } catch (Exception e) { }
                         }
                     });
                 }
             };
 
-
     public static String getHexString(byte[] buf) {
-        StringBuffer sb = new StringBuffer();
-        for (byte b : buf) sb.append(String.format("%02X", b));
-        return sb.toString();
-    }
-
-    public static String ByteArrayToString(byte[] ba) {
-        StringBuilder hex = new StringBuilder(ba.length * 2);
-        for (byte b : ba)
-            hex.append(b + " ");
-
-        return hex.toString();
+        if (buf != null) {
+            StringBuffer sb = new StringBuffer();
+            for (byte b : buf) sb.append(String.format("%02X", b));
+            return sb.toString();
+        } else return "";
     }
 
     public void parseStuff(BluetoothDevice device, int rssi, byte[] scanRecord) {
@@ -1132,87 +994,14 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             if (type == 0) break;
 
             byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
-            Log.w("TYPE", String.valueOf(scanRecord[index]));
             if (type==22) {
+                Log.w("MATCH", "Type matched, submitting for parsing: " + device.getName());
+                deviceMap.put(device.getAddress(), device);
                 parse(device.getName(), device.getAddress(), rssi, getHexString(data));
-                deviceMap.put(device.getAddress(),device);
             }
 //Advance
             index += length;
         }
     }
 
-    /*
-    public String printScanRecord(byte[] scanRecord) {
-
-        // Simply print all raw bytes
-        try {
-            String decodedRecord = new String(scanRecord, "UTF-8");
-            Log.d("DEBUG", "decoded String : " + ByteArrayToString(scanRecord));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Parse data bytes into individual records
-        List<AdRecord> records = AdRecord.parseScanRecord(scanRecord);
-        for (int i = 0; i < records.size(); i++) {
-            Log.w("RECORD PRINT", TextUtils.join(",", records));
-        }
-
-
-        // Print individual records
-        if (records.size() == 0) {
-            Log.i("DEBUG", "Scan Record Empty");
-        } else {
-            Log.i("DEBUG", "Scan Record: " + TextUtils.join(",", records));
-        }
-        return "";
-    }
-
-    public static class AdRecord {
-
-        public AdRecord(int length, int type, byte[] data) {
-            String decodedRecord = "";
-            try {
-                decodedRecord = new String(data, "UTF-8");
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + getHexString(data));
-            String a = getHexString(data);
-            if (type==22) {
-                System.out.println("\n\nIP Address:" + a.substring(2,4) + a.substring(0,2) + a.substring(4,32) + "    Options:" + a.substring(32) + "\n");
-            }
-        }
-
-        // ...
-
-        public static List<AdRecord> parseScanRecord(byte[] scanRecord) {
-            List<AdRecord> records = new ArrayList<AdRecord>();
-
-            int index = 0;
-            while (index < scanRecord.length) {
-                int length = scanRecord[index++];
-                //Done once we run out of records
-                if (length == 0) break;
-
-                int type = scanRecord[index];
-                //Done if our record isn't a valid type
-                if (type == 0) break;
-
-                byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
-
-                records.add(new AdRecord(length, type, data));
-                //Advance
-                index += length;
-            }
-
-            return records;
-        }
-
-        // ...
-    }
-    */
 }

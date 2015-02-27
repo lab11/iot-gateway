@@ -86,8 +86,9 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
     }
 
     private void advertise() {
-        getFragmentManager().beginTransaction().replace(android.R.id.content, new DemoFragment()).commit();
         String ad_value = cur_settings.getString("advertisement_value","0000");
+        setTitle("Advertise: " + ad_value);
+        bleAdvertiser.stopAdvertising(advertiseCallback);
         settingsBuilder = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
@@ -103,13 +104,13 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         @Override
         public void onStartSuccess(AdvertiseSettings settingsInEffect) {
             super.onStartSuccess(settingsInEffect);
-            toastNotify("Started Advertising");
         }
         @Override
         public void onStartFailure(int errorCode) {
             super.onStartFailure(errorCode);
             toastNotify("Failed to Advertise");
             cur_settings.edit().putBoolean("advertise_switch",false).commit();
+            getFragmentManager().beginTransaction().replace(android.R.id.content, new DemoFragment()).commit();
         }
 
     };
@@ -123,61 +124,20 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.demo_preferences);
+            getPreferenceScreen().removePreference(getPreferenceManager().findPreference("advertisement_value"));
         }
     }
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         doGen();
-        if(key.equals("advertise_switch")) {
-            if (cur_settings.getBoolean("advertise_switch",false)) {
-                advertise();
-            } else {
-                bleAdvertiser.stopAdvertising(advertiseCallback);
-                toastNotify("Stopped Advertising");
-            }
-        } else cur_settings.edit().putBoolean("advertise_switch",false).commit();
+        if(cur_settings.getBoolean("advertise_switch",false)) {
+            advertise();
+        } else {
+            bleAdvertiser.stopAdvertising(advertiseCallback);
+            setTitle("Advertise: Off");
+        }
     }
-
-//    @Override
-//    public void onHeaderClick(Header header, int position) {
-//        super.onHeaderClick(header, position);
-//        if (header.id == R.id.gen_btn) {
-////            doGenBTN();
-//        }
-//        if (header.id == R.id.send_btn) {
-////            doSendBTN();
-//        }
-//    }
-//
-//    @Override
-//    protected boolean isValidFragment(String fragmentName) {
-//        return true;
-//    }
-//
-//    @Override
-//    public void onBuildHeaders(List <Header> target) {
-//        loadHeadersFromResource(R.xml.activity_demo, target);
-//
-//        for(Header header: target) {
-//            if (header.title.equals("GENERATE")) {
-//                String summary = "Final String: " + final_str;
-//                header.summary = summary;
-//            }
-//        }
-//
-//    }
-
-//    public void doSendBTN() {
-//        Log.w(tag, "doSendBTN");
-//        if (!final_str.equals("")) {
-//            setResult(Activity.RESULT_OK,
-//                    new Intent().putExtra("FINAL_STR", final_str));
-//            finish();
-//        } else {
-//            finish();
-//        }
-//    }
 
     public String boolToStr(boolean state) {
         if (state) return "1";
@@ -241,8 +201,7 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         final_str += third_fourth_nib + fifth_nib + dataTEXT;
         Log.w(tag, final_str);
         cur_settings.edit().putString("advertisement_value",final_str).commit();
-        cur_settings.getString("advertisement_value",final_str);
-
+//        setTitle("Adv: " + final_str);
     }
 
     @Override
