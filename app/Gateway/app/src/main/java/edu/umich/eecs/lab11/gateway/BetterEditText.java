@@ -1,7 +1,7 @@
 package edu.umich.eecs.lab11.gateway;
 
-import android.preference.EditTextPreference;
 import android.content.Context;
+import android.preference.EditTextPreference;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 
