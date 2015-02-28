@@ -94,7 +94,7 @@
             }
             serv += "</ul>";
             dat.SERV = serv;
-            dat.LOC = loc[dat.address] || "BBB 2909";
+            dat.LOC = dat.location || loc[dat.address] || "BBB 2909";
             for (n in data) if(data[n].uuid===dat.uuid) data.splice(n,1);
             data.unshift(dat);
             $('#table').bootstrapTable('load', data );

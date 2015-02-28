@@ -17,7 +17,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -26,9 +25,8 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
@@ -36,30 +34,36 @@ import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.Toast;
 
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
-import com.loopj.android.http.JsonHttpResponseHandler;
 import com.loopj.android.http.TextHttpResponseHandler;
 
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HTTP;
+import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +83,8 @@ public class Gateway extends PreferenceActivity {
     private ArrayList<Integer> programSizesTotal = new ArrayList<Integer>();
 
     private Map<String,BluetoothDevice> deviceMap = new HashMap<String, BluetoothDevice>();
+
+    private Map<String,String> urlMap = new HashMap<String, String>();
 
     private PackageManager packageManager;
 
@@ -285,8 +291,10 @@ public class Gateway extends PreferenceActivity {
 
 
         String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,32);
-//        Log.w("PARSE_IP", IP);
-
+        if (urlMap.get(IP) == null) {
+            unshortUrl(IP); // resolve url for peripheral's next advertisement
+            return;
+        }
 
         final_binary_str = hexToBinary(a.substring(32));
         Log.w("PARSE_FINAL", final_binary_str);
@@ -296,13 +304,6 @@ public class Gateway extends PreferenceActivity {
         String SENSORS = final_binary_str.substring(8, 16);
         String PROGRAM_TYPE = final_binary_str.substring(16, 20);
         String DATA = final_binary_str.substring(20);
-
-//        Log.w("PARSE_TRANSPARENT", TRANSPARENT);
-//        Log.w("PARSE_RATE", RATE);
-//        Log.w("PARSE_QOS", QOS);
-//        Log.w("PARSE_SENSORS", SENSORS);
-//        Log.w("PARSE_PROGRAM_TYPE", PROGRAM_TYPE);
-//        Log.w("PARSE_DATA", DATA);
 
         if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
             Log.w("POINT", "TRANSPARENT FORWARD");
@@ -462,11 +463,13 @@ public class Gateway extends PreferenceActivity {
         try {
             final JSONObject gatdDataParams = new JSONObject();
             gatdDataParams.put("TYPE", "data");
+            String IP;
             if (cur_peripheral.TRANSPARENT) {
                 gatdDataParams.put("DEVICE_ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
                 gatdDataParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
                 gatdDataParams.put("DATA", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]);
                 gatdDataParams.put("QOS", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()]);
+                IP = cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()];
             } else {
                 for (int i = 0; i < cur_peripheral.DATA_TO_PEEK.size(); i++) {
                     String[] key_val = cur_peripheral.DATA_TO_PEEK.get(i).split(" ");
@@ -476,15 +479,18 @@ public class Gateway extends PreferenceActivity {
                 gatdDataParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
                 gatdDataParams.put("DATA", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()]);
                 gatdDataParams.put("QOS", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()]);
+                IP = cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()];
             }
             final StringEntity entity = new StringEntity(gatdDataParams.toString());
+            String url = urlMap.get(IP);
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
             client.post(getBaseContext(), "http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new TextHttpResponseHandler() {
                 @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { }
                 @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, String responseString) { }
             });
 
-            client.post(getBaseContext(), "http://gatewaycloud.elasticbeanstalk.com/", entity, "application/json", new TextHttpResponseHandler() {
+            System.out.println("SENDING TO : " + url);
+            client.post(getBaseContext(), url, entity, "application/json", new TextHttpResponseHandler() {
 
                 public BluetoothDevice device = deviceMap.get(gatdDataParams.getString("DEVICE_ID"));
                 public Integer qos = Integer.parseInt(gatdDataParams.getString("QOS"), 2);
@@ -508,10 +514,11 @@ public class Gateway extends PreferenceActivity {
                                 public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                                     super.onConnectionStateChange(gatt, status, newState);
                                     if (newState == BluetoothProfile.STATE_CONNECTED) {
-                                        Log.i(tag, "RAWR: Connected to GATT server.");
+                                        Log.i(tag, "Connected to GATT server.");
                                         gatt.discoverServices();
                                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                                        Log.i(tag, "RAWR: Disconnected from GATT server.");
+                                        Log.i(tag, "Disconnected from GATT server.");
+                                        gatt.close();
                                     }
                                 }
 
@@ -519,7 +526,7 @@ public class Gateway extends PreferenceActivity {
                                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
                                     super.onServicesDiscovered(gatt, status);
                                     if (status == BluetoothGatt.GATT_SUCCESS) {
-                                        Log.w(tag, "RAWR: Service Discovery Successful: ");
+                                        Log.w(tag, "Service Discovery Successful: ");
                                         try {
                                             for (int i=0; i<services.length(); i++) {
                                                 String service = services.getJSONObject(i).getString("uuid");
@@ -536,7 +543,7 @@ public class Gateway extends PreferenceActivity {
                                             characteristicReader(gatt,0);
                                         } catch (Exception e) { e.printStackTrace(); }
                                     } else {
-                                        Log.w(tag, "RAWR: onServicesDiscovered received: " + status);
+                                        Log.w(tag, "onServicesDiscovered received: " + status);
                                     }
                                 }
 
@@ -564,10 +571,9 @@ public class Gateway extends PreferenceActivity {
                                             System.out.println("RSEND : " + reResponse);
                                             final StringEntity entity2 = new StringEntity(reResponse.toString());
                                             entity2.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                                            clientx.post(getBaseContext(), "http://gatewaycloud.elasticbeanstalk.com/", entity2, "application/json", asyncResponder);
+                                            clientx.post(getBaseContext(), getRequestURI().toString(), entity2, "application/json", asyncResponder);
                                         } catch (Exception e) { e. printStackTrace();}
                                         gatt.disconnect();
-                                        gatt.close();
                                     }
                                 }
                             });
@@ -576,10 +582,10 @@ public class Gateway extends PreferenceActivity {
                 }
             });
 
-            Log.i("NOAH_POSTING_DATA: ", gatdDataParams.toString());
+            Log.i("POSTING_DATA", gatdDataParams.toString());
 
             if (!program_name_to_send.equals("")) { //there is a program
-                Log.i("NOAH PROGRAM NAME ", program_name_to_send);
+                Log.i("PROGRAM_NAME", program_name_to_send);
                 Integer program_index = programValid.lastIndexOf(program_name_to_send);
                 program_cur_packet_size = entity.toString().getBytes().length; // TODO i'm not sure this is correct... the tostring changes the size... approx for now
                 Integer cur_total_size = programSizesTotal.get(program_index);
@@ -594,24 +600,6 @@ public class Gateway extends PreferenceActivity {
         @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { System.out.println("ASYNC RESPONSE : " + responseString); }
         @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, String responseString) { System.out.println("ASYNC RESPONSE : " + responseString); }
     };
-
-//    String mCurrentPhotoPath;
-
-//    private File createImageFile() throws IOException {
-//        // Create an image file name
-//        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-//        String imageFileName = "JPEG_" + timeStamp + "_";
-//        File storageDir = Environment.getExternalStoragePublicDirectory(
-//                Environment.DIRECTORY_PICTURES);
-//        File image = File.createTempFile(
-//                imageFileName,  /* prefix */
-//                ".jpg",         /* suffix */
-//                storageDir      /* directory */
-//        );
-//        // Save a file: path for use with ACTION_VIEW intents
-//        mCurrentPhotoPath = "file:" + image.getAbsolutePath();
-//        return image;
-//    }
 
     public boolean hasGPSDevice(Context context) {
         final LocationManager mgr = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
@@ -929,7 +917,7 @@ public class Gateway extends PreferenceActivity {
 
     private void send_program() {
         Log.w(top, "send_program()");
-        Log.i("NOAH_SENDING_PROGRAM", "send_program()");
+        Log.i("SENDING_PROGRAM", "send_program()");
         JSONObject gatdProgramParams = new JSONObject();
         Integer program_index = programValid.lastIndexOf(program_name_to_send);
         try {
@@ -953,7 +941,7 @@ public class Gateway extends PreferenceActivity {
                 @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
             });
         } catch (Exception e) {}
-        Log.i("NOAH_POSTING_PROGRAM: ", gatdProgramParams.toString());
+        Log.i("POSTING_PROGRAM", gatdProgramParams.toString());
     }
 
 
@@ -980,6 +968,31 @@ public class Gateway extends PreferenceActivity {
             for (byte b : buf) sb.append(String.format("%02X", b));
             return sb.toString();
         } else return "";
+    }
+
+    private void unshortUrl(String shortUrlHex) {
+        // shortUrlHex is hexstring -> convert to ascii first, then unshorten
+        StringBuilder shortUrl = new StringBuilder();
+        for (int i = 0; i < shortUrlHex.length(); i+=2) {
+            String str = shortUrlHex.substring(i, i + 2);
+            if (!str.equals("00")) shortUrl.append((char) Integer.parseInt(str, 16));
+        }
+        new unshortTask().execute(shortUrlHex,shortUrl.toString());
+    }
+
+    private class unshortTask extends AsyncTask<String, Void, Boolean> {
+        @Override
+        protected Boolean doInBackground(String... shortUrls) {
+            try {
+                URL url = new URL("http://" + shortUrls[1]);
+                HttpURLConnection ucon = (HttpURLConnection) url.openConnection();
+                ucon.setInstanceFollowRedirects(false);
+                String location = ucon.getHeaderField("Location");
+                System.out.println("RESOLVED LOCATION : " + location);
+                if (location!=null) urlMap.put(shortUrls[0],location);
+                return true;
+            } catch (Exception e) { e.printStackTrace(); return false; }
+        }
     }
 
     public void parseStuff(BluetoothDevice device, int rssi, byte[] scanRecord) {
