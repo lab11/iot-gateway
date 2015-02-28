@@ -147,7 +147,9 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
     public void doGen() {
         Log.w(tag, "doGenBTN");
 
-        String IPTEXT = cur_settings.getString("ip_text", "20014701F1013202");
+//        String IPTEXT = cur_settings.getString("ip_text", "20014701F1013202");
+        String url = cur_settings.getString("ip_text", "goo.gl/IJ6naX");
+        String IPTEXT = toIpText(url.getBytes());
         String transparentBTN = boolToStr(cur_settings.getBoolean("peripheral_transparent_req", true));
         String rateTEXT = String.valueOf(cur_settings.getInt("data_rate", -1));
         String levelTEXT = String.valueOf(cur_settings.getInt("level_rate", -1));
@@ -242,6 +244,14 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
 
     public ParcelUuid shortUUID(String s) {
         return ParcelUuid.fromString("0000" + s + "-0000-1000-8000-00805F9B34FB");
+    }
+
+    public String toIpText(byte[] ba) {
+        StringBuilder str = new StringBuilder();
+        for(int i = 0; i < 16; i++)
+            if (i<ba.length) str.append(String.format("%02X", ba[i]));
+            else str.append("00");
+        return str.toString();
     }
 
     public void toastNotify(String m) {
