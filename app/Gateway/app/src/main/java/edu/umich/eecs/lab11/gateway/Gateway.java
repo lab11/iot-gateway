@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -28,12 +29,15 @@ import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Message;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
+import android.util.Pair;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -51,9 +55,11 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,13 +97,16 @@ public class Gateway extends PreferenceActivity {
 
     private LocationManager locationManager;
 
+    private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
     private boolean mScanning;
-    private Handler mHandler;
+    private Handler mScanHandler;
     private boolean paused;
     private static AsyncHttpClient client = new AsyncHttpClient();
-    private static AsyncHttpClient clientx = new AsyncHttpClient();
+
+    private HandlerThread mThread = new HandlerThread("mThread");
+    private Handler mHandler;
 
     private final String tag = "tag";
     private final String top = "top";
@@ -163,7 +172,9 @@ public class Gateway extends PreferenceActivity {
 
         getSystemService(Context.LOCATION_SERVICE);
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-        mHandler = new Handler();
+        mScanHandler = new Handler();
+        mThread.start();
+        mHandler = new Handler(mThread.getLooper(), mHandlerCallback);
 
         // Use this check to determine whether BLE is supported on the device.  Then you can
         // selectively disable BLE-related features.
@@ -174,8 +185,8 @@ public class Gateway extends PreferenceActivity {
 
         // Initializes a Bluetooth adapter.  For API level 18 and above, get a reference to
         // BluetoothAdapter through BluetoothManager.
-        final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
+        mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = mBluetoothManager.getAdapter();
 
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
@@ -491,7 +502,6 @@ public class Gateway extends PreferenceActivity {
     }
 
     private AsyncHttpResponseHandler asyncResponder = new TextHttpResponseHandler() {
-
         @Override
         public void onFailure(int statusCode, org.apache.http.Header[] headers, String responseString, Throwable throwable) { System.out.println("FAILED REQUEST : " + responseString); }
 
@@ -503,81 +513,179 @@ public class Gateway extends PreferenceActivity {
             if (responseString.length()<2) return;
             try {
                 final JSONObject responseJSON = new JSONObject(responseString);
-                if (qos >= 7 && responseJSON.has("services") && responseJSON.has("device_id") && device.getAddress().equals(responseJSON.getString("device_id"))) {
-                    mBluetoothGatt = device.connectGatt(getBaseContext(), false, new BluetoothGattCallback() {
-                        JSONArray services = responseJSON.getJSONArray("services");
-                        JSONArray charArray = new JSONArray();
-                        ArrayList<BluetoothGattCharacteristic> characteristicsList = new ArrayList<BluetoothGattCharacteristic>();
+                if (qos >= 7 && responseJSON.has("services") && responseJSON.has("device_id") && device.getAddress().equals(responseJSON.getString("device_id")))
+                    if (mHandler.sendMessage(Message.obtain(mHandler,0,0,0,responseJSON)) &&
+                        mHandler.sendMessage(Message.obtain(mHandler,0,1,0,getRequestHeaders())) &&
+                        mHandler.sendMessage(Message.obtain(mHandler,0,2,0,getRequestURI())))
+                            mHandler.sendMessage(Message.obtain(mHandler,0,3,0,device));
+            } catch(Exception e){ mBluetoothGatt.disconnect(); }
+        }
+    };
 
-                        @Override
-                        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-                            super.onConnectionStateChange(gatt, status, newState);
-                            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                                Log.i(tag, "Connected to GATT server.");
-                                gatt.discoverServices();
-                            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                                Log.i(tag, "Disconnected from GATT server.");
-                                gatt.close();
-                            }
+    Handler.Callback mHandlerCallback = new Handler.Callback() {
+        JSONArray services;
+        JSONArray charArray = new JSONArray();
+        ArrayList<BluetoothGattCharacteristic> characteristicsList;
+        ArrayList<String> actionsList;
+        ArrayList<BluetoothGattCharacteristic> notifyList;
+        BluetoothDevice device;
+        org.apache.http.Header[] headers;
+        URI uri;
+        Boolean servicesDiscovered;
+        Long notifyDeadline;
+
+
+        @Override
+        public boolean handleMessage(Message message) {
+            try {
+                if (message.what==0) {
+                    if (message.arg1 == 0) services = ((JSONObject) message.obj).getJSONArray("services");
+                    else if (message.arg1 == 1) headers = (org.apache.http.Header[]) message.obj;
+                    else if (message.arg1 == 2) uri = (URI) message.obj;
+                    else if (message.arg1 == 3) {
+                        device = (BluetoothDevice) message.obj;
+                        if (mBluetoothGatt!=null && mBluetoothManager.getConnectionState(device,BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED)
+                            mHandler.sendMessage(Message.obtain(mHandler, 1, mBluetoothGatt));
+                        else {
+                            servicesDiscovered = false;
+                            notifyList = new ArrayList<BluetoothGattCharacteristic>();
+                            mBluetoothGatt = device.connectGatt(getBaseContext(), false, gattCallback);
                         }
-
-                        @Override
-                        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-                            super.onServicesDiscovered(gatt, status);
-                            if (status == BluetoothGatt.GATT_SUCCESS) {
-                                Log.w(tag, "Service Discovery Successful: ");
+                    }
+                } else if (message.what==1) {
+                    if (servicesDiscovered)  mHandler.sendMessage(Message.obtain(mHandler, 2, message.obj));
+                    else ((BluetoothGatt) message.obj).discoverServices();
+                } else if (message.what==2) {
+                    BluetoothGatt gatt = (BluetoothGatt) message.obj;
+                    servicesDiscovered = true;
+                    for (int i = 0; i < services.length(); i++) {
+                        String service = services.getJSONObject(i).getString("uuid");
+                        BluetoothGattService bgs = gatt.getService(UUID.fromString(service));
+                        if (bgs != null) {
+                            JSONArray characteristics = services.getJSONObject(i).getJSONArray("characteristics");
+                            characteristicsList = new ArrayList<BluetoothGattCharacteristic>();
+                            actionsList = new ArrayList<String>();
+                            for (int j = 0; j < characteristics.length(); j++) {
                                 try {
-                                    for (int i=0; i<services.length(); i++) {
-                                        String service = services.getJSONObject(i).getString("uuid");
-                                        BluetoothGattService bgs = gatt.getService(UUID.fromString(service));
-                                        if (bgs != null) {
-                                            JSONArray characteristics = services.getJSONObject(i).getJSONArray("characteristics");
-                                            for (int j = 0; j < characteristics.length(); j++) {
-                                                try {
-                                                    characteristicsList.add(bgs.getCharacteristic(UUID.fromString(characteristics.getJSONObject(j).getString("uuid"))));
-                                                } catch (Exception e) { e.printStackTrace(); }
+                                    JSONObject charObject = characteristics.getJSONObject(j);
+                                    BluetoothGattCharacteristic characteristic = bgs.getCharacteristic(UUID.fromString(charObject.getString("uuid")));
+                                    String action = charObject.getString("action");
+                                    if (action.equals("write"))
+                                        if (charObject.has("format")) {
+                                            Integer format = GattSpecs.formatLookup(charObject.getString("format"));
+                                            if (format!=null) {
+                                                if (format>0) characteristic.setValue(charObject.getInt("value"),format, charObject.has("offset")?charObject.getInt("offset"):0);
+                                                else if (format==-1) characteristic.setValue(charObject.getString("value"));
+                                                else if (format==-2) characteristic.setValue((byte []) charObject.get("value"));
                                             }
-                                        }
-                                    }
-                                    characteristicReader(gatt,0);
+                                        } else characteristic.setValue(charObject.getString("value"));
+                                    characteristicsList.add(characteristic);
+                                    actionsList.add(action);
                                 } catch (Exception e) { e.printStackTrace(); }
-                            } else {
-                                Log.w(tag, "onServicesDiscovered received: " + status);
                             }
                         }
-
-                        @Override
-                        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-                            super.onCharacteristicRead(gatt, characteristic, status);
-                            final JSONObject chara = new JSONObject();
-                            try {
-                                chara.put("service", characteristic.getService().getUuid().toString());
-                                chara.put("characteristic", characteristic.getUuid().toString());
-                                chara.put("value", getHexString(characteristic.getValue()));
-                            } catch (Exception e) {e.printStackTrace();}
-                            charArray.put(chara);
-                            characteristicReader(gatt,characteristicsList.indexOf(characteristic)+1);
-                        }
-
-                        private void characteristicReader(BluetoothGatt gatt, Integer index) {
-                            if (index < characteristicsList.size()) {
-                                if (!gatt.readCharacteristic(characteristicsList.get(index)))
-                                    characteristicReader(gatt, index + 1);
-                            } else {
-                                try {
-                                    final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + responseJSON.get("device_id") + "\"}");
-                                    reResponse.put("ATTRIBUTES", charArray);
-                                    System.out.println("RSEND : " + reResponse);
-                                    final StringEntity entity = new StringEntity(reResponse.toString());
-                                    entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                                    client.post(getBaseContext(), getRequestURI().toString(), getRequestHeaders(), entity, "application/json", asyncResponder);
-                                } catch (Exception e) { e. printStackTrace();}
-                                gatt.disconnect();
-                            }
-                        }
-                    });
+                    }
+                    characteristicAction(gatt, 0);
+                } else if (message.what==3) {
+                    if (message.arg1 < 2) {
+                        BluetoothGattCharacteristic characteristic = (BluetoothGattCharacteristic) message.obj;
+                        final JSONObject chara = new JSONObject();
+                        try {
+                            chara.put("service", characteristic.getService().getUuid().toString());
+                            chara.put("characteristic", characteristic.getUuid().toString());
+                            chara.put("value", getHexString(characteristic.getValue()));
+                        } catch (Exception e) {e.printStackTrace();}
+                        charArray.put(chara);
+                        characteristicAction(mBluetoothGatt,characteristicsList.indexOf(characteristic)+1);
+                    } else if (message.arg1 == 2) {
+                        notifyList.add((BluetoothGattCharacteristic) message.obj);
+                        Calendar.getInstance().getTimeInMillis();
+                    }
+                } else if (message.what==4) {
+                    if (notifyList.contains(message.obj)) ;
                 }
-            } catch(Exception e){ e.printStackTrace();}
+                return true;
+            } catch (Exception e) {e.printStackTrace(); return false;}
+        }
+
+        private void characteristicAction(BluetoothGatt gatt, Integer index) {
+            if (index < characteristicsList.size()) {
+                Boolean actionSuccess = false;
+                BluetoothGattCharacteristic characteristic = characteristicsList.get(index);
+                String action = actionsList.get(index);
+                if (action.equals("read")) {
+                    actionSuccess = gatt.readCharacteristic(characteristic);
+                } else if (action.equals("write")) {
+                    characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+                    actionSuccess = gatt.writeCharacteristic(characteristicsList.get(index));
+                } else if (action.equals("notify") || action.equals("indicate")) {
+                    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(GattSpecs.CCC_DESCRIPTOR);
+                    gatt.setCharacteristicNotification(characteristic, true);
+                    descriptor.setValue(action.equals("notify") ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
+                    actionSuccess = gatt.writeDescriptor(descriptor);
+                }
+                if (!actionSuccess) characteristicAction(gatt, index + 1);
+            } else {
+                try {
+                    final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + device.getAddress() + "\"}");
+                    reResponse.put("ATTRIBUTES", charArray);
+                    System.out.println("RSEND : " + reResponse);
+                    final StringEntity entity = new StringEntity(reResponse.toString());
+                    entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                    client.post(getBaseContext(), uri.toString(), headers, entity, "application/json", asyncResponder);
+                } catch (Exception e) { e. printStackTrace();}
+                gatt.disconnect();
+            }
+        }
+    };
+
+    private BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            super.onConnectionStateChange(gatt, status, newState);
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                Log.i(tag, "Connected to GATT server.");
+                mHandler.sendMessage(Message.obtain(mHandler,1,gatt));
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Log.i(tag, "Disconnected from GATT server.");
+                gatt.close();
+            }
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            super.onServicesDiscovered(gatt, status);
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                Log.w(tag, "Service Discovery Successful: ");
+                mHandler.sendMessage(Message.obtain(mHandler,2,gatt));
+            } else {
+                Log.w(tag, "onServicesDiscovered received: " + status);
+            }
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            super.onCharacteristicRead(gatt, characteristic, status);
+            mHandler.sendMessage(Message.obtain(mHandler,3,0,0,characteristic));
+        }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            super.onCharacteristicWrite(gatt, characteristic, status);
+            mHandler.sendMessage(Message.obtain(mHandler,3,1,0,characteristic));
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            super.onCharacteristicChanged(gatt, characteristic);
+            mHandler.sendMessage(Message.obtain(mHandler,4,characteristic));
+        }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            super.onDescriptorWrite(gatt, descriptor, status);
+            if (descriptor.getUuid().equals(GattSpecs.CCC_DESCRIPTOR)) mHandler.sendMessage(Message.obtain(mHandler,3,2,0,descriptor.getCharacteristic()));
         }
     };
 
@@ -865,7 +973,7 @@ public class Gateway extends PreferenceActivity {
     private void scanLeDevice(final boolean enable) {
         if (enable & !paused & !mScanning) {
             // Stops scanning after a pre-defined scan period.
-            mHandler.postDelayed(new Runnable() {
+            mScanHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     scanLeDevice(false);
@@ -880,7 +988,7 @@ public class Gateway extends PreferenceActivity {
             }
         } else {
             if (!paused)
-                mHandler.postDelayed(new Runnable() {
+                mScanHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         scanLeDevice(true);

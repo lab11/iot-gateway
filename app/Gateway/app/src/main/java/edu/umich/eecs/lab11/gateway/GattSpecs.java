@@ -1,5 +1,7 @@
 package edu.umich.eecs.lab11.gateway;
 
+import android.bluetooth.BluetoothGattCharacteristic;
+
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -8,6 +10,8 @@ import java.util.UUID;
  */
 
 public class GattSpecs {
+
+    public static final UUID CCC_DESCRIPTOR = shortUUID("2902");
 
     // ADOPTED GATT SERVICES AS OF BLE 4.2 (1/30/15)
 
@@ -154,6 +158,22 @@ public class GattSpecs {
         characteristics.put(shortUUID("2A3B"), "Service Required");
     }
 
+    // WRITE TYPES
+
+    private static HashMap<String,Integer> characteristicFormats = new HashMap<String, Integer>();
+    static {
+        characteristicFormats.put("uint8" , BluetoothGattCharacteristic.FORMAT_UINT8);
+        characteristicFormats.put("uint16", BluetoothGattCharacteristic.FORMAT_UINT16);
+        characteristicFormats.put("uint32", BluetoothGattCharacteristic.FORMAT_UINT32);
+        characteristicFormats.put("sint8" , BluetoothGattCharacteristic.FORMAT_SINT8);
+        characteristicFormats.put("sint16", BluetoothGattCharacteristic.FORMAT_SINT16);
+        characteristicFormats.put("sint32", BluetoothGattCharacteristic.FORMAT_SINT32);
+        characteristicFormats.put("float" , BluetoothGattCharacteristic.FORMAT_FLOAT);
+        characteristicFormats.put("sfloat", BluetoothGattCharacteristic.FORMAT_SFLOAT);
+        characteristicFormats.put("string", -1);
+        characteristicFormats.put("byte[]", -2);
+    }
+
     // PUBLIC LOOKUP FUNCTIONS
 
     public static String serviceNameLookup(UUID uuid) {
@@ -164,6 +184,10 @@ public class GattSpecs {
     public static String characteristicNameLookup(UUID uuid) {
         String characteristic = characteristics.get(uuid);
         return (characteristic==null) ? uuid.toString() : characteristic;
+    }
+
+    public static Integer formatLookup(String format) {
+        return characteristicFormats.get(format);
     }
 
     // SHORT UUID GENERATOR (WHERE s IS 4-DIGIT HEX STRING)
