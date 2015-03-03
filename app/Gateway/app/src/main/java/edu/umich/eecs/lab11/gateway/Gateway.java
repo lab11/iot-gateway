@@ -38,6 +38,7 @@ import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
 import android.util.Pair;
+import android.util.SparseArray;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -54,6 +55,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Array;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -82,7 +84,7 @@ public class Gateway extends PreferenceActivity {
     private Peripheral cur_peripheral;
 
     private SensorManager mSensorManager;
-    private HashMap<Integer,String> mSensors;
+    private SparseArray<String> mSensors;
 
     private final static String INTENT_TRUE = "TRUE";
     private final static String INTENT_FALSE = "FALSE";
@@ -118,9 +120,6 @@ public class Gateway extends PreferenceActivity {
     private String program_url_to_send;
     private Integer program_cur_packet_size;
 
-    private String final_str;
-    private String final_binary_str;
-
     private String popup_text_string = "";
     private String popup_pic_string = "";
 
@@ -149,7 +148,7 @@ public class Gateway extends PreferenceActivity {
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         System.out.println("MAGIC : " + mSensorManager.getSensorList(Sensor.TYPE_ALL).toString());
-        mSensors = new HashMap<Integer, String>();
+        mSensors = new SparseArray<String>();
         mSensors.put(Sensor.TYPE_AMBIENT_TEMPERATURE,"");
         mSensors.put(Sensor.TYPE_RELATIVE_HUMIDITY,"");
         mSensors.put(Sensor.TYPE_ACCELEROMETER,"");
@@ -192,7 +191,6 @@ public class Gateway extends PreferenceActivity {
         if (mBluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
             finish();
-            return;
         }
     }
 
@@ -262,12 +260,9 @@ public class Gateway extends PreferenceActivity {
 
 
     public String hexToBinary(final String hexStr) {
-        StringBuffer binStr = new StringBuffer();
+        StringBuilder binStr = new StringBuilder();
         String[] conversionTable = {"0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111"};
-
-        for (int i = 0; i < hexStr.length(); i++) {
-            binStr.append(conversionTable[Character.digit(hexStr.charAt(i), 16)]);
-        }
+        for (int i = 0; i < hexStr.length(); i++) binStr.append(conversionTable[Character.digit(hexStr.charAt(i), 16)]);
         return binStr.toString();
     }
 
@@ -292,14 +287,14 @@ public class Gateway extends PreferenceActivity {
             return;
         }
 
-        final_binary_str = hexToBinary(a.substring(32));
+        String final_binary_str = hexToBinary(a.substring(32));
         Log.w("PARSE_FINAL", final_binary_str);
         String TRANSPARENT = final_binary_str.substring(0, 1);
         String RATE = final_binary_str.substring(1, 4);
         String QOS = final_binary_str.substring(4, 8);
         String SENSORS = final_binary_str.substring(8, 16);
         String PROGRAM_TYPE = final_binary_str.substring(16, 20);
-        String DATA = final_binary_str.substring(20);
+        String DATA = a.substring(37);
 
         if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
             Log.w("POINT", "TRANSPARENT FORWARD");
@@ -354,7 +349,7 @@ public class Gateway extends PreferenceActivity {
                 @Override public void onSuccess(int statusCode, org.apache.http.Header[] headers, byte[] responseBody) { }
                 @Override public void onFailure(int statusCode, org.apache.http.Header[] headers, byte[] responseBody, Throwable error) { }
             });
-        } catch (Exception e) {}
+        } catch (Exception e) { e.printStackTrace(); }
 
         run_forward(TRANSPARENT);
 
@@ -448,8 +443,7 @@ public class Gateway extends PreferenceActivity {
     }
 
     private void schedule() {
-//        Log.w(top, "schedule()");
-//        Log.w("POINT", "scheduling is not implemented");
+//      implement scheduling
         post();
     }
 
@@ -510,15 +504,17 @@ public class Gateway extends PreferenceActivity {
             BluetoothDevice device = deviceMap.get(getRequestHeaders()[0].getValue());
             Integer qos = Integer.parseInt(getRequestHeaders()[1].getValue(), 2);
             System.out.println("RESPONSE : " + responseString);
-            if (responseString.length()<2) return;
             try {
                 final JSONObject responseJSON = new JSONObject(responseString);
-                if (qos >= 7 && responseJSON.has("services") && responseJSON.has("device_id") && device.getAddress().equals(responseJSON.getString("device_id")))
-                    if (mHandler.sendMessage(Message.obtain(mHandler,0,0,0,responseJSON)) &&
-                        mHandler.sendMessage(Message.obtain(mHandler,0,1,0,getRequestHeaders())) &&
-                        mHandler.sendMessage(Message.obtain(mHandler,0,2,0,getRequestURI())))
-                            mHandler.sendMessage(Message.obtain(mHandler,0,3,0,device));
-            } catch(Exception e){ mBluetoothGatt.disconnect(); }
+                if (!( qos >= 7 && responseJSON.has("services") && responseJSON.has("device_id") && device.getAddress().equals(responseJSON.getString("device_id")) &&
+                    mHandler.sendMessage(Message.obtain(mHandler,0,0,0,responseJSON)) && mHandler.sendMessage(Message.obtain(mHandler,0,1,0,getRequestHeaders())) &&
+                    mHandler.sendMessage(Message.obtain(mHandler,0,2,0,getRequestURI())) && mHandler.sendMessage(Message.obtain(mHandler, 0, 3, 0, device)) ))
+                        throw new Exception();
+            } catch (Exception e) {
+                if(device!=null && mBluetoothManager.getConnectionState(device,BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED) {
+                    mBluetoothGatt.disconnect();
+                }
+            }
         }
     };
 
@@ -527,18 +523,17 @@ public class Gateway extends PreferenceActivity {
         JSONArray charArray = new JSONArray();
         ArrayList<BluetoothGattCharacteristic> characteristicsList;
         ArrayList<String> actionsList;
-        ArrayList<BluetoothGattCharacteristic> notifyList;
+        Map<BluetoothGattCharacteristic,ArrayList<String>> notifyList;
         BluetoothDevice device;
         org.apache.http.Header[] headers;
         URI uri;
         Boolean servicesDiscovered;
         Long notifyDeadline;
 
-
         @Override
         public boolean handleMessage(Message message) {
             try {
-                if (message.what==0) {
+                if (message.what==0) { // Action from HTTP response. Connect device if not already.
                     if (message.arg1 == 0) services = ((JSONObject) message.obj).getJSONArray("services");
                     else if (message.arg1 == 1) headers = (org.apache.http.Header[]) message.obj;
                     else if (message.arg1 == 2) uri = (URI) message.obj;
@@ -548,14 +543,16 @@ public class Gateway extends PreferenceActivity {
                             mHandler.sendMessage(Message.obtain(mHandler, 1, mBluetoothGatt));
                         else {
                             servicesDiscovered = false;
-                            notifyList = new ArrayList<BluetoothGattCharacteristic>();
+                            notifyList = new HashMap<BluetoothGattCharacteristic, ArrayList<String>>();
+                            mScanning = false; paused = true;
+                            mBluetoothAdapter.stopLeScan(mLeScanCallback);
                             mBluetoothGatt = device.connectGatt(getBaseContext(), false, gattCallback);
                         }
                     }
-                } else if (message.what==1) {
+                } else if (message.what==1) { // Discover services if undiscovered.
                     if (servicesDiscovered)  mHandler.sendMessage(Message.obtain(mHandler, 2, message.obj));
                     else ((BluetoothGatt) message.obj).discoverServices();
-                } else if (message.what==2) {
+                } else if (message.what==2) { // Get requested characteristics. Prepare for & initiate action.
                     BluetoothGatt gatt = (BluetoothGatt) message.obj;
                     servicesDiscovered = true;
                     for (int i = 0; i < services.length(); i++) {
@@ -585,56 +582,85 @@ public class Gateway extends PreferenceActivity {
                             }
                         }
                     }
-                    characteristicAction(gatt, 0);
-                } else if (message.what==3) {
-                    if (message.arg1 < 2) {
-                        BluetoothGattCharacteristic characteristic = (BluetoothGattCharacteristic) message.obj;
-                        final JSONObject chara = new JSONObject();
-                        try {
-                            chara.put("service", characteristic.getService().getUuid().toString());
-                            chara.put("characteristic", characteristic.getUuid().toString());
-                            chara.put("value", getHexString(characteristic.getValue()));
-                        } catch (Exception e) {e.printStackTrace();}
-                        charArray.put(chara);
-                        characteristicAction(mBluetoothGatt,characteristicsList.indexOf(characteristic)+1);
-                    } else if (message.arg1 == 2) {
-                        notifyList.add((BluetoothGattCharacteristic) message.obj);
-                        Calendar.getInstance().getTimeInMillis();
+                    characteristicAction(gatt);
+                } else if (message.what==3) { // On read, write, or notify, store in JSON object to send back to server
+                    BluetoothGattCharacteristic characteristic = (BluetoothGattCharacteristic) message.obj;
+                    if (!characteristicsList.isEmpty() && characteristicsList.get(0).equals(characteristic)) {
+                        if (message.arg2 == BluetoothGatt.GATT_SUCCESS) {
+                            if (message.arg1 < 2) {
+                                final JSONObject chara = new JSONObject();
+                                try {
+                                    chara.put("service", characteristic.getService().getUuid().toString());
+                                    chara.put("characteristic", characteristic.getUuid().toString());
+                                    chara.put("value", getHexString(characteristic.getValue()));
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                                charArray.put(chara);
+                            } else if (message.arg1 == 2) {
+                                notifyList.put(characteristic, new ArrayList<String>());
+                                notifyDeadline = Calendar.getInstance().getTimeInMillis() + 5000;
+                            }
+                        }
+                        characteristicsList.remove(0);
+                        actionsList.remove(0);
+                        characteristicAction(mBluetoothGatt);
+                    } else if (message.arg2==BluetoothGatt.GATT_SUCCESS && notifyList.containsKey(characteristic)) {
+                        notifyList.get(characteristic).add(getHexString(characteristic.getValue()));
+                        System.out.println(notifyList.get(characteristic));
                     }
                 } else if (message.what==4) {
-                    if (notifyList.contains(message.obj)) ;
+                    if (notifyList.containsKey(message.obj)) mBluetoothGatt.readCharacteristic((BluetoothGattCharacteristic) message.obj);
                 }
                 return true;
             } catch (Exception e) {e.printStackTrace(); return false;}
         }
 
-        private void characteristicAction(BluetoothGatt gatt, Integer index) {
-            if (index < characteristicsList.size()) {
+        private void characteristicAction(BluetoothGatt gatt) {
+            if (characteristicsList.size()>0) {
                 Boolean actionSuccess = false;
-                BluetoothGattCharacteristic characteristic = characteristicsList.get(index);
-                String action = actionsList.get(index);
+                BluetoothGattCharacteristic characteristic = characteristicsList.get(0);
+                String action = actionsList.get(0);
                 if (action.equals("read")) {
                     actionSuccess = gatt.readCharacteristic(characteristic);
                 } else if (action.equals("write")) {
                     characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-                    actionSuccess = gatt.writeCharacteristic(characteristicsList.get(index));
+                    actionSuccess = gatt.writeCharacteristic(characteristic);
                 } else if (action.equals("notify") || action.equals("indicate")) {
                     BluetoothGattDescriptor descriptor = characteristic.getDescriptor(GattSpecs.CCC_DESCRIPTOR);
                     gatt.setCharacteristicNotification(characteristic, true);
                     descriptor.setValue(action.equals("notify") ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
                     actionSuccess = gatt.writeDescriptor(descriptor);
                 }
-                if (!actionSuccess) characteristicAction(gatt, index + 1);
+                if (!actionSuccess) {
+                    characteristicsList.remove(0);
+                    actionsList.remove(0);
+                    characteristicAction(gatt);
+                }
             } else {
-                try {
-                    final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + device.getAddress() + "\"}");
-                    reResponse.put("ATTRIBUTES", charArray);
-                    System.out.println("RSEND : " + reResponse);
-                    final StringEntity entity = new StringEntity(reResponse.toString());
-                    entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                    client.post(getBaseContext(), uri.toString(), headers, entity, "application/json", asyncResponder);
-                } catch (Exception e) { e. printStackTrace();}
-                gatt.disconnect();
+                final Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + device.getAddress() + "\"}");
+                            for (BluetoothGattCharacteristic characteristic : notifyList.keySet()) {
+                                final JSONObject chara = new JSONObject();
+                                try {
+                                    chara.put("service", characteristic.getService().getUuid().toString());
+                                    chara.put("characteristic", characteristic.getUuid().toString());
+                                    chara.put("value", notifyList.get(characteristic).toString());
+                                } catch (Exception e) { e.printStackTrace(); }
+                                charArray.put(chara);
+                            }
+                            reResponse.put("ATTRIBUTES", charArray);
+                            System.out.println("RSEND : " + reResponse);
+                            final StringEntity entity = new StringEntity(reResponse.toString());
+                            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                            client.post(getBaseContext(), uri.toString(), headers, entity, "application/json", asyncResponder);
+                        } catch (Exception e) { e. printStackTrace();}
+                    }
+                }, 10000);
             }
         }
     };
@@ -649,6 +675,7 @@ public class Gateway extends PreferenceActivity {
                 mHandler.sendMessage(Message.obtain(mHandler,1,gatt));
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(tag, "Disconnected from GATT server.");
+                paused=false; scanLeDevice(true);
                 gatt.close();
             }
         }
@@ -659,33 +686,35 @@ public class Gateway extends PreferenceActivity {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.w(tag, "Service Discovery Successful: ");
                 mHandler.sendMessage(Message.obtain(mHandler,2,gatt));
-            } else {
-                Log.w(tag, "onServicesDiscovered received: " + status);
-            }
+            } else Log.w(tag, "Service Discovery Failure: " + status);
         }
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicRead(gatt, characteristic, status);
-            mHandler.sendMessage(Message.obtain(mHandler,3,0,0,characteristic));
+            Log.w(tag, "Read From Characteristic: " + characteristic.getUuid());
+            mHandler.sendMessage(Message.obtain(mHandler,3,0,status,characteristic));
         }
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicWrite(gatt, characteristic, status);
-            mHandler.sendMessage(Message.obtain(mHandler,3,1,0,characteristic));
+            Log.w(tag, "Write To Characteristic: " + characteristic.getUuid());
+            mHandler.sendMessage(Message.obtain(mHandler,3,1,status,characteristic));
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
+            Log.w(tag, "Characteristic Change: " + characteristic.getUuid());
             mHandler.sendMessage(Message.obtain(mHandler,4,characteristic));
         }
 
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             super.onDescriptorWrite(gatt, descriptor, status);
-            if (descriptor.getUuid().equals(GattSpecs.CCC_DESCRIPTOR)) mHandler.sendMessage(Message.obtain(mHandler,3,2,0,descriptor.getCharacteristic()));
+            Log.w(tag, "Set Up Notifications: " + descriptor.getCharacteristic().getUuid());
+            if (descriptor.getUuid().equals(GattSpecs.CCC_DESCRIPTOR)) mHandler.sendMessage(Message.obtain(mHandler,3,2,status,descriptor.getCharacteristic()));
         }
     };
 
@@ -693,13 +722,11 @@ public class Gateway extends PreferenceActivity {
         final LocationManager mgr = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
         if (mgr == null) return false;
         final List<String> providers = mgr.getAllProviders();
-        if (providers == null) return false;
-        return providers.contains(LocationManager.GPS_PROVIDER);
+        return providers != null && providers.contains(LocationManager.GPS_PROVIDER);
     }
 
     public boolean isOnline() {
-        ConnectivityManager cm =
-                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo netInfo = cm.getActiveNetworkInfo();
         return netInfo != null && netInfo.isConnectedOrConnecting();
     }
@@ -902,8 +929,7 @@ public class Gateway extends PreferenceActivity {
 
         alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int whichButton) {
-                String value = input.getText().toString();
-                popup_text_string = value;
+                popup_text_string = input.getText().toString();
                 mScanning = true;
                 paused = false;
                 mBluetoothAdapter.startLeScan(mLeScanCallback);
@@ -970,38 +996,6 @@ public class Gateway extends PreferenceActivity {
         Log.w(top, "send_ack()");
     }
 
-    private void scanLeDevice(final boolean enable) {
-        if (enable & !paused & !mScanning) {
-            // Stops scanning after a pre-defined scan period.
-            mScanHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    scanLeDevice(false);
-                }
-            }, SCAN_PERIOD);
-
-            mScanning = true;
-            try {
-                mBluetoothAdapter.startLeScan(mLeScanCallback);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        } else {
-            if (!paused)
-                mScanHandler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        scanLeDevice(true);
-                    }
-                }, 1000);
-            mScanning = false;
-            try {
-                mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
 
     private void send_program() {
         Log.w(top, "send_program()");
@@ -1032,23 +1026,47 @@ public class Gateway extends PreferenceActivity {
         Log.i("POSTING_PROGRAM", gatdProgramParams.toString());
     }
 
+    private void scanLeDevice(final boolean enable) {
+        if (enable & !paused & !mScanning) {
+            mScanHandler.postDelayed(new Runnable() { @Override public void run() { scanLeDevice(false); } }, SCAN_PERIOD);
+            mScanning = true;
+            try { mBluetoothAdapter.startLeScan(mLeScanCallback); } catch (Exception e) { e.printStackTrace(); }
+        } else {
+            if (!paused) mScanHandler.postDelayed(new Runnable() { @Override public void run() { scanLeDevice(true); } }, 1000);
+            mScanning = false;
+            try { mBluetoothAdapter.stopLeScan(mLeScanCallback); } catch (Exception e) { e.printStackTrace(); }
+        }
+    }
 
     // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            new BluetoothAdapter.LeScanCallback() {
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
+            runOnUiThread(new Runnable() {
                 @Override
-                public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
-                                parseStuff(device, rssi, scanRecord);
-                            } catch (Exception e) { }
-                        }
-                    });
+                public void run() {
+                    try {
+                        Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
+                        /** TESTING FOR OPO TODO: REMOVE **/
+                        if (device.getName().equals("Cloudcomm")) {
+                            cur_peripheral.empty();
+                            cur_peripheral.TRANSPARENT=true;
+                            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]=device.getAddress();
+                            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]="Opo";
+                            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]="0";
+                            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()]="0111";
+                            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()]="676F6F2E676C2F6A524D784530000000";
+                            if (!urlMap.containsKey("676F6F2E676C2F6A524D784530000000")) urlMap.put("676F6F2E676C2F6A524D784530000000","http://gatewaycloud.elasticbeanstalk.com/");
+                            deviceMap.put(device.getAddress(), device);
+                            post();
+                        } else
+                        /** END: TESTING FOR OPO **/
+                        parseStuff(device, rssi, scanRecord);
+                    } catch (Exception e) { }
                 }
-            };
+            });
+        }
+    };
 
     public static String getHexString(byte[] buf) {
         if (buf != null) {
@@ -1087,21 +1105,16 @@ public class Gateway extends PreferenceActivity {
         int index = 0;
         while (index < scanRecord.length) {
             int length = scanRecord[index++];
-//Done once we run out of records
-            if (length == 0) break;
-
+            if (length == 0) break; //Done once we run out of records
             int type = scanRecord[index];
-//Done if our record isn't a valid type
-            if (type == 0) break;
-
+            if (type == 0) break; //Done if our record isn't a valid type
             byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
             if (type==22) {
                 Log.w("MATCH", "Type matched, submitting for parsing: " + device.getName());
                 deviceMap.put(device.getAddress(), device);
                 parse(device.getName(), device.getAddress(), rssi, getHexString(data));
             }
-//Advance
-            index += length;
+            index += length; //Advance
         }
     }
 
