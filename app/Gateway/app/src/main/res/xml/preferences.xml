@@ -2,6 +2,12 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <PreferenceCategory android:title="Master Control">
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="master_agreement"
+            android:title="Run Gateway Service" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="Phone Access Permissions">
         <CheckBoxPreference
             android:defaultValue="true"
@@ -55,12 +61,5 @@
             android:key="data_rate"
             android:max="7"/>
     </PreferenceCategory>
-    <PreferenceCategory android:title=" ">
-        <SwitchPreference
-            android:defaultValue="true"
-            android:key="master_agreement"
-            android:title="Allow Gateway" />
-    </PreferenceCategory>
-
 
 </PreferenceScreen>
