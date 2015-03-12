@@ -118,6 +118,8 @@ public class GatewayService extends Service {
     private String popup_text_string = "";
     private String popup_pic_string = "";
 
+    private Integer radioSilenceCount = 0;
+
     private boolean waitingForOffload;
 
     private static final int REQUEST_ENABLE_BT = 1;
@@ -130,6 +132,8 @@ public class GatewayService extends Service {
     private String gateway_first_contact_time;
     private String gateway_transmit_time;
     private String gate_size_transmit;
+
+    private String deviceConnected;
 
 
     @Override
@@ -208,6 +212,7 @@ public class GatewayService extends Service {
         mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY), SensorManager.SENSOR_DELAY_NORMAL,5000000);
         mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL,5000000);
         mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT), SensorManager.SENSOR_DELAY_NORMAL,5000000);
+        deviceConnected = "";
 
         // Initializes list view adapter.
         scanLeDevice(true);
@@ -480,7 +485,7 @@ public class GatewayService extends Service {
                         mHandler.sendMessage(Message.obtain(mHandler,0,2,0,getRequestURI())) && mHandler.sendMessage(Message.obtain(mHandler, 0, 3, 0, device)) ))
                     throw new Exception();
             } catch (Exception e) {
-                if(device!=null && mBluetoothManager.getConnectionState(device, BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED) {
+                if(device!=null &&  mBluetoothManager.getConnectionState(device, BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED) {
                     mBluetoothGatt.disconnect();
                 }
             }
@@ -492,12 +497,18 @@ public class GatewayService extends Service {
         JSONArray charArray = new JSONArray();
         ArrayList<BluetoothGattCharacteristic> characteristicsList;
         ArrayList<String> actionsList;
-        Map<BluetoothGattCharacteristic,ArrayList<String>> notifyList;
+        Map<BluetoothGattCharacteristic,JSONArray> notifyList;
         BluetoothDevice device;
         org.apache.http.Header[] headers;
         URI uri;
         Boolean servicesDiscovered;
-        Long notifyDeadline;
+        Boolean notifying;
+        Boolean scheduled;
+        //** MAP FOR OPO CLOUDCOMM - FROM NOTIFYING CHARACTERISTIC TO DEFRAG MANAGING CHARACTERISTIC **/
+        Map<BluetoothGattCharacteristic,BluetoothGattCharacteristic> ccManagerMap;
+        String dataBuilder;
+        Integer count;
+        //** END: MAP FOR OPO CLOUDCOMM - FROM NOTIFYING CHARACTERISTIC TO DEFRAG MANAGING CHARACTERISTIC **/
 
         @Override
         public boolean handleMessage(Message message) {
@@ -508,11 +519,16 @@ public class GatewayService extends Service {
                     else if (message.arg1 == 2) uri = (URI) message.obj;
                     else if (message.arg1 == 3) {
                         device = (BluetoothDevice) message.obj;
-                        if (mBluetoothGatt!=null && mBluetoothManager.getConnectionState(device,BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED)
+                        scheduled = false;
+                        ccManagerMap = new HashMap<BluetoothGattCharacteristic, BluetoothGattCharacteristic>();
+                        count=0;
+                        if (mBluetoothGatt!=null && (mBluetoothManager.getConnectionState(device,BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED))
                             mHandler.sendMessage(Message.obtain(mHandler, 1, mBluetoothGatt));
                         else {
+                            notifying = false;
+                            dataBuilder = "";
+                            notifyList = new HashMap<BluetoothGattCharacteristic, JSONArray>();
                             servicesDiscovered = false;
-                            notifyList = new HashMap<BluetoothGattCharacteristic, ArrayList<String>>();
                             mScanning = false; paused = true;
                             mBluetoothAdapter.stopLeScan(mLeScanCallback);
                             mBluetoothGatt = device.connectGatt(getBaseContext(), false, gattCallback);
@@ -547,6 +563,14 @@ public class GatewayService extends Service {
                                         } else characteristic.setValue(charObject.getString("value"));
                                     characteristicsList.add(characteristic);
                                     actionsList.add(action);
+                                    /** SET UP FOR OPO CLOUDCOMM SERVICE REQUESTS **/
+                                    if ((action.equals("indicate")||action.equals("notify"))&&charObject.has("ccmanager_uuid")) {
+                                        BluetoothGattCharacteristic ccmanager = bgs.getCharacteristic(UUID.fromString(charObject.getString("ccmanager_uuid")));
+                                        ccmanager.setValue(1, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
+                                        ccManagerMap.put(characteristic, ccmanager);
+                                    }
+                                    /** END: SET UP FOR OPO CLOUDCOMM SERVICE REQUESTS **/
+
                                 } catch (Exception e) { e.printStackTrace(); }
                             }
                         }
@@ -567,16 +591,47 @@ public class GatewayService extends Service {
                                 }
                                 charArray.put(chara);
                             } else if (message.arg1 == 2) {
-                                notifyList.put(characteristic, new ArrayList<String>());
-                                notifyDeadline = Calendar.getInstance().getTimeInMillis() + 5000;
+                                notifyList.put(characteristic, new JSONArray());
+                                characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+                                mBluetoothGatt.writeCharacteristic(characteristic);
+//                                notifyDeadline = Calendar.getInstance().getTimeInMillis() + 5000;
                             }
                         }
-                        characteristicsList.remove(0);
-                        actionsList.remove(0);
+                        actionsList.remove(characteristicsList.indexOf(characteristic));
+                        characteristicsList.remove(characteristic);
+                        /** INITIAL DEFRAG MANAGER WRITE FOR OPO CLOUDCOMM **/
+                        if (ccManagerMap.containsKey(characteristic)) {
+                            BluetoothGattCharacteristic ccmanager = ccManagerMap.get(characteristic);
+                            ccmanager.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+                            mBluetoothGatt.writeCharacteristic(ccmanager);
+                        } else
+                        /** END: INITIAL DEFRAG MANAGER WRITE FOR OPO CLOUDCOMM **/
                         characteristicAction(mBluetoothGatt);
                     } else if (message.arg2==BluetoothGatt.GATT_SUCCESS && notifyList.containsKey(characteristic)) {
-                        notifyList.get(characteristic).add(getHexString(characteristic.getValue()));
+                        /** DEFRAG MANAGER WRITE ACK FOR OPO CLOUDCOMM **/
+                        if (ccManagerMap.containsKey(characteristic)) {
+                            byte[] cData = characteristic.getValue();
+                            int seq_num = cData[0];
+                            if(seq_num < 0) seq_num += 256;
+                            System.out.println(getHexString(cData));
+                            dataBuilder += getHexString(cData).substring(2);
+                            if (seq_num == 255) {
+                                notifyList.get(characteristic).put(dataBuilder);
+                                dataBuilder="";
+                            }
+                            BluetoothGattCharacteristic ccmanager = ccManagerMap.get(characteristic);
+                            ccmanager.setValue(seq_num, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
+                            ccmanager.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+                            mBluetoothGatt.writeCharacteristic(ccmanager);
+                            count++;
+                        } else {
+                        /** END: DEFRAG MANAGER WRITE ACK FOR OPO CLOUDCOMM **/
+                            notifyList.get(characteristic).put(getHexString(characteristic.getValue()));
+                        }
                     }
+                    /** CONTINUE NORMAL STUFF AFTER INITIAL DEFRAG MANAGER WRITE FOR OPO CLOUDCOMM **/
+                    else if (ccManagerMap.containsValue(characteristic)) characteristicAction(mBluetoothGatt);
+                    /** END: CONTINUE NORMAL STUFF AFTER INITIAL DEFRAG MANAGER WRITE FOR OPO CLOUDCOMM **/
                 } else if (message.what==4) {
                     if (notifyList.containsKey(message.obj)) mBluetoothGatt.readCharacteristic((BluetoothGattCharacteristic) message.obj);
                 }
@@ -595,41 +650,45 @@ public class GatewayService extends Service {
                     characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
                     actionSuccess = gatt.writeCharacteristic(characteristic);
                 } else if (action.equals("notify") || action.equals("indicate")) {
-                    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(GattSpecs.CCC_DESCRIPTOR);
-                    gatt.setCharacteristicNotification(characteristic, true);
-                    descriptor.setValue(action.equals("notify") ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-                    actionSuccess = gatt.writeDescriptor(descriptor);
+                    try {
+                        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(GattSpecs.CCC_DESCRIPTOR);
+                        gatt.setCharacteristicNotification(characteristic, true);
+                        descriptor.setValue(action.equals("notify") ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
+                        actionSuccess = gatt.writeDescriptor(descriptor);
+                        notifying = true;
+                    } catch (Exception e) {actionSuccess=false;}
                 }
                 if (!actionSuccess) {
                     characteristicsList.remove(0);
                     actionsList.remove(0);
                     characteristicAction(gatt);
                 }
-            } else {
+            } else if (!scheduled) {
                 final Handler handler = new Handler();
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + device.getAddress() + "\"}");
-                            for (BluetoothGattCharacteristic characteristic : notifyList.keySet()) {
-                                final JSONObject chara = new JSONObject();
-                                try {
-                                    chara.put("service", characteristic.getService().getUuid().toString());
-                                    chara.put("characteristic", characteristic.getUuid().toString());
-                                    chara.put("value", notifyList.get(characteristic).toString());
-                                } catch (Exception e) { e.printStackTrace(); }
-                                charArray.put(chara);
-                            }
-                            reResponse.put("ATTRIBUTES", charArray);
-                            System.out.println("RSEND : " + reResponse);
-                            final StringEntity entity = new StringEntity(reResponse.toString());
-                            entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                            client.post(getBaseContext(), uri.toString(), headers, entity, "application/json", asyncResponder);
-                        } catch (Exception e) { e. printStackTrace();}
-                    }
-                }, 10000);
+                handler.postDelayed(new Runnable() { @Override public void run() { send(); } }, notifying ? 60000 : 0);
+                scheduled = true;
             }
+        }
+
+        private void send() {
+            try {
+                final JSONObject reResponse = new JSONObject("{\"DEVICE_ID\":\"" + device.getAddress() + "\"}");
+                for (BluetoothGattCharacteristic characteristic : notifyList.keySet()) {
+                    final JSONObject chara = new JSONObject();
+                    try {
+                        chara.put("service", characteristic.getService().getUuid().toString());
+                        chara.put("characteristic", characteristic.getUuid().toString());
+                        chara.put("value", notifyList.get(characteristic));
+                    } catch (Exception e) { e.printStackTrace(); }
+                    charArray.put(chara);
+                }
+                reResponse.put("ATTRIBUTES", charArray);
+                System.out.println("RSEND : " + reResponse);
+                final StringEntity entity = new StringEntity(reResponse.toString());
+                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                client.post(getBaseContext(), uri.toString(), headers, entity, "application/json", asyncResponder);
+                charArray = new JSONArray();
+            } catch (Exception e) { e. printStackTrace();}
         }
     };
 
@@ -641,9 +700,11 @@ public class GatewayService extends Service {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.i(tag, "Connected to GATT server.");
                 mHandler.sendMessage(Message.obtain(mHandler,1,gatt));
+                deviceConnected = gatt.getDevice().getAddress();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(tag, "Disconnected from GATT server.");
                 paused=false; scanLeDevice(true);
+                deviceConnected="";
                 gatt.close();
             }
         }
@@ -876,9 +937,9 @@ public class GatewayService extends Service {
 
     public void do_popup_pic() {
         Log.w(top, "do_popup_pic");
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        takePictureIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) getBaseContext().startActivity(takePictureIntent);
+//        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+//        takePictureIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//        if (takePictureIntent.resolveActivity(getPackageManager()) != null) getBaseContext().startActivity(takePictureIntent);
     }
 
     public void do_popup_text() {
@@ -997,12 +1058,18 @@ public class GatewayService extends Service {
     private void scanLeDevice(final boolean enable) {
         if (enable & !paused & !mScanning) {
             mScanHandler.postDelayed(new Runnable() { @Override public void run() { scanLeDevice(false); } }, SCAN_PERIOD);
-            mScanning = true;
-            try { mBluetoothAdapter.startLeScan(mLeScanCallback); } catch (Exception e) { e.printStackTrace(); }
+            try { mScanning = mBluetoothAdapter.startLeScan(mLeScanCallback); } catch (Exception e) { e.printStackTrace(); }
         } else {
             if (!paused) mScanHandler.postDelayed(new Runnable() { @Override public void run() { scanLeDevice(true); } }, 1000);
-            mScanning = false;
-            try { mBluetoothAdapter.stopLeScan(mLeScanCallback); } catch (Exception e) { e.printStackTrace(); }
+            try {
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                mScanning = false;
+            } catch (Exception e) { e.printStackTrace(); }
+//            if (radioSilenceCount++ > 3) {
+//                mBluetoothAdapter.disable();
+//                mBluetoothAdapter.enable();
+//            }
+
         }
     }
 
@@ -1011,6 +1078,7 @@ public class GatewayService extends Service {
         @Override
         public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
             try {
+                radioSilenceCount=0;
                 Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
                 /** TESTING FOR OPO TODO: REMOVE **/
                 if (device.getName()!=null && device.getName().equals("Cloudcomm")) {
@@ -1021,7 +1089,7 @@ public class GatewayService extends Service {
                     cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]="0";
                     cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()]="0111";
                     cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()]="676F6F2E676C2F6A524D784530000000";
-                    if (!urlMap.containsKey("676F6F2E676C2F6A524D784530000000")) urlMap.put("676F6F2E676C2F6A524D784530000000","http://gatewaycloud.elasticbeanstalk.com/");
+                    if (!urlMap.containsKey("676F6F2E676C2F6A524D784530000000")) urlMap.put("676F6F2E676C2F6A524D784530000000","http://gatewaycloud.elasticbeanstalk.com");
                     deviceMap.put(device.getAddress(), device);
                     post();
                 } else
@@ -1121,7 +1189,7 @@ public class GatewayService extends Service {
 //    public void onCreate() {
 //        /*
 //        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-//
+// 7
 //        if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) != null) {
 //            mTemp = mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
 //
