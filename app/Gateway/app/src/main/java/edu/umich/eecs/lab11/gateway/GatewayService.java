@@ -31,7 +31,6 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
 import android.preference.PreferenceManager;
-import android.provider.MediaStore;
 import android.util.Log;
 import android.util.SparseArray;
 import android.widget.EditText;
@@ -52,7 +51,6 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,19 +62,17 @@ import java.util.UUID;
  */
 
 public class GatewayService extends Service {
-    private ArrayList<String> programValid = new ArrayList<String>();
-    private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>();
-    private ArrayList<Integer> programMaxPay = new ArrayList<Integer>();
-    private ArrayList<String> programURL = new ArrayList<String>();
-    private ArrayList<Integer> programSizesTotal = new ArrayList<Integer>();
+    private ArrayList<String>  programValid       = new ArrayList<String> (Arrays.asList("PayMe","YOUPAY"));
+    private ArrayList<String>  programURL         = new ArrayList<String> (Arrays.asList("http://payme.com/api","http://youpay.com/iot"));
+    private ArrayList<Integer> programMaxPay      = new ArrayList<Integer>(Arrays.asList(8,15));
+    private ArrayList<Integer> programSizesTotal  = new ArrayList<Integer>(Arrays.asList(0,0));
+    private ArrayList<Boolean> programCredentials = new ArrayList<Boolean>(Arrays.asList(true,true));
 
     private Map<String,BluetoothDevice> deviceMap = new HashMap<String, BluetoothDevice>();
 
     private Map<String,String> urlMap = new HashMap<String, String>();
 
     private PackageManager packageManager;
-
-    private Peripheral cur_peripheral;
 
     private SensorManager mSensorManager;
     private SparseArray<String> mSensors;
@@ -110,9 +106,9 @@ public class GatewayService extends Service {
 
     private long peek_time;
 
-    private String program_name_to_send;
-    private String program_pay_to_send;
-    private String program_url_to_send;
+    private String program_name_to_send = "";
+    private String program_pay_to_send = "";
+    private String program_url_to_send = "";
     private Integer program_cur_packet_size;
 
     private String popup_text_string = "";
@@ -140,7 +136,6 @@ public class GatewayService extends Service {
     public void onCreate() {
         super.onCreate();
         cur_settings = PreferenceManager.getDefaultSharedPreferences(this);
-        cur_peripheral = new Peripheral();
 
         packageManager = getApplicationContext().getPackageManager();
 
@@ -152,21 +147,6 @@ public class GatewayService extends Service {
         mSensors.put(Sensor.TYPE_ACCELEROMETER,"");
         mSensors.put(Sensor.TYPE_LIGHT,"");
 
-        programValid.add("PayMe");
-        programValid.add("YOUPAY");
-        programCredentials.add(true);
-        programCredentials.add(true);
-        programMaxPay.add(8);
-        programMaxPay.add(15);
-        programURL.add("www.payme.com/api");
-        programURL.add("www.youpay.com/iot");
-        programSizesTotal.add(0);
-        programSizesTotal.add(0);
-
-        program_name_to_send = "";
-        program_pay_to_send = "";
-        program_url_to_send = "";
-
         getSystemService(Context.LOCATION_SERVICE);
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         mScanHandler = new Handler();
@@ -177,7 +157,6 @@ public class GatewayService extends Service {
         // selectively disable BLE-related features.
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, "BLE not supported", Toast.LENGTH_SHORT).show();
-//            finish();
             stopSelf();
         }
 
@@ -189,7 +168,6 @@ public class GatewayService extends Service {
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
-//            finish();
             stopSelf();
         }
     }
@@ -214,6 +192,8 @@ public class GatewayService extends Service {
         mSensorManager.registerListener(mSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT), SensorManager.SENSOR_DELAY_NORMAL,5000000);
         deviceConnected = "";
 
+        Toast.makeText(this, "Gateway Service Started", Toast.LENGTH_SHORT).show();
+
         // Initializes list view adapter.
         scanLeDevice(true);
         return super.onStartCommand(intent, flags, startId);
@@ -233,75 +213,33 @@ public class GatewayService extends Service {
         return null;
     }
 
-    public String hexToBinary(final String hexStr) {
-        StringBuilder binStr = new StringBuilder();
-        String[] conversionTable = {"0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111"};
-        for (int i = 0; i < hexStr.length(); i++) binStr.append(conversionTable[Character.digit(hexStr.charAt(i), 16)]);
-        return binStr.toString();
-    }
-
-
-
     public void parse(String devName, String devAddress, int rssi, String a) {
         Log.w(top, "parse()");
 
-//        if (!cur_settings.getBoolean("master_agreement", false)) {
-//            Log.w("POINT", "GATEWAY NOT ENABLED!");
-//            return; //BREAK OUT
-//        }
-        cur_peripheral.empty(); //NEW PACKET
-
         String t = a.substring(2,4) + a.substring(0,2) + a.substring(4,32) + "    PARSE_:" + a.substring(32);
         Log.w("PARSING A REAL THING!", t);
-
-
         String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,32);
         if (urlMap.get(IP) == null) {
             unshortUrl(IP); // resolve url for peripheral's next advertisement
             return;
         }
 
-        String final_binary_str = hexToBinary(a.substring(32));
-        Log.w("PARSE_FINAL", final_binary_str);
-        String TRANSPARENT = final_binary_str.substring(0, 1);
-        String RATE = final_binary_str.substring(1, 4);
-        String QOS = final_binary_str.substring(4, 8);
-        String SENSORS = final_binary_str.substring(8, 16);
-        String PROGRAM_TYPE = final_binary_str.substring(16, 20);
-        String DATA = a.substring(37);
-
-        cur_peripheral.TRANSPARENT = TRANSPARENT.equals("1");
-        Log.w("POINT", cur_peripheral.TRANSPARENT ? "TRANSPARENT FORWARD" : "PEEK FORWARD");
-        cur_peripheral.FLAGS[Peripheral.ENUM.ip_address.ordinal()] = IP;
-        cur_peripheral.FLAGS[Peripheral.ENUM.rate.ordinal()] = RATE;
-        cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()] = QOS;
-        cur_peripheral.FLAGS[Peripheral.ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
-        cur_peripheral.FLAGS[Peripheral.ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
-        cur_peripheral.FLAGS[Peripheral.ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
-        cur_peripheral.FLAGS[Peripheral.ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
-        cur_peripheral.FLAGS[Peripheral.ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
-        cur_peripheral.FLAGS[Peripheral.ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
-        cur_peripheral.FLAGS[Peripheral.ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-        cur_peripheral.FLAGS[Peripheral.ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
-        cur_peripheral.FLAGS[Peripheral.ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-        cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()] = DATA;
-        cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()] = devAddress;
-        cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()] = devName;
+        Peripheral cur_peripheral = new Peripheral(devName,devAddress,rssi,a,IP);
 
         //          debug cloud
         try {
             JSONObject gatdParams = new JSONObject();
             gatdParams.put("TYPE", "debug");
-            gatdParams.put("DEVICE_ID", devAddress);
-            gatdParams.put("NAME", devName);
+            gatdParams.put("DEVICE_ID", cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()]);
+            gatdParams.put("NAME", cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]);
             gatdParams.put("RSSI", rssi);
             gatdParams.put("DESTINATION", IP);
-            gatdParams.put("TRANSPARENT",TRANSPARENT);
-            gatdParams.put("RATE", RATE);
-            gatdParams.put("QOS", QOS);
-            if (TRANSPARENT.equals("0"))  gatdParams.put("SENSORS", SENSORS);
-            gatdParams.put("PROGRAM", PROGRAM_TYPE);
-            gatdParams.put("DATA", DATA);
+            gatdParams.put("TRANSPARENT",cur_peripheral.TRANSPARENT);
+            gatdParams.put("RATE", cur_peripheral.FLAGS[Peripheral.ENUM.rate.ordinal()]);
+            gatdParams.put("QOS", cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]);
+            if (!cur_peripheral.TRANSPARENT)  gatdParams.put("SENSORS", cur_peripheral.FLAGS[Peripheral.ENUM.sensors.ordinal()]);
+            gatdParams.put("PROGRAM", cur_peripheral.FLAGS[Peripheral.ENUM.program_type.ordinal()]);
+            gatdParams.put("DATA", cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]);
             StringEntity entity = new StringEntity(gatdParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
             client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
@@ -310,26 +248,26 @@ public class GatewayService extends Service {
             });
         } catch (Exception e) { e.printStackTrace(); }
 
-        run_forward(TRANSPARENT);
+        run_forward(cur_peripheral);
 
     }
 
-    public boolean run_forward(String TRANSPARENT) {
+    public boolean run_forward(Peripheral cur_peripheral) {
 
         //DO SENSORS
         Integer peripheral_program_level;
-        if ((TRANSPARENT.equals("0") && !do_sensors())) { //DONE WITH TRANSPARENT BIT
+        if (!cur_peripheral.TRANSPARENT && !do_sensors(cur_peripheral)) { //DONE WITH TRANSPARENT BIT
             Log.w("POINT", "SENSORS NOT ABLE!");
             return false;
         } else {
             Log.w("POINT", "SENSORS DONE!");
             peripheral_program_level = Integer.parseInt(cur_peripheral.FLAGS[Peripheral.ENUM.program_type.ordinal()], 2);
         }
-        switch_grant(peripheral_program_level);
+        switch_grant(cur_peripheral,peripheral_program_level);
         return true;
     }
 
-    public boolean switch_grant(Integer peripheral_program_level) {
+    public boolean switch_grant(Peripheral cur_peripheral, Integer peripheral_program_level) {
 //        Log.w(top, "switch_grant()");
 
         Integer user_pay_floor = cur_settings.getInt("min_pay_rate", 0);
@@ -340,7 +278,7 @@ public class GatewayService extends Service {
 
         if (peripheral_program_level == 0) { // no program supported by peripheral
             if (user_pay_floor == 0) { // user does not want monetary program
-                schedule();
+                schedule(cur_peripheral);
             } else {
                 Log.w("POINT", "Program NOT SUPPORTED"); // peripheral can't pay
                 return false;
@@ -349,15 +287,15 @@ public class GatewayService extends Service {
             if (user_pay_floor != 0) { // user wants monetary program
                 if (!do_monetary_program(peripheral_program_level))
                     return false; // peripheral can pay... max that sucker out
-                schedule();
+                schedule(cur_peripheral);
             } else {
-                schedule(); //user doesn't care... send it altruistically
+                schedule(cur_peripheral); //user doesn't care... send it altruistically
             }
         } else {  // some programs supported by peripheral
             if (peripheral_program_level >= user_pay_floor) { // the peripheral can support up to a certain amount of pay... user accepts
                 if (!do_monetary_program(peripheral_program_level))
                     return false; //pay as much as the peripheral wants
-                schedule();
+                schedule(cur_peripheral);
             } else {
                 Log.w("POINT", "Peripheral CAN'T PAY"); // peripheral can't pay
                 return false;
@@ -367,11 +305,9 @@ public class GatewayService extends Service {
     }
 
     private boolean do_monetary_program(Integer pay_level) {
-//        Log.w(top, "do_monetary_program(Integer pay_level)");
         String program_name = cur_settings.getString("program_text", "PayMe").trim();
         Log.w("program_debug", program_name);
         Integer program_index = programValid.lastIndexOf(program_name);
-        //Log.w("program_debug", program_index.toString());
         Log.w("program_debug_pay_level", String.valueOf(pay_level));
         Log.w("program_debug_max_pay", String.valueOf(programMaxPay.get(program_index)));
 
@@ -397,12 +333,12 @@ public class GatewayService extends Service {
         return true;
     }
 
-    private void schedule() {
+    private void schedule(Peripheral cur_peripheral) {
 //      implement scheduling
-        post();
+        post(cur_peripheral);
     }
 
-    private void post() {
+    private void post(Peripheral cur_peripheral) {
 
         // data cloud
         try {
@@ -431,7 +367,6 @@ public class GatewayService extends Service {
             System.out.println("SENDING TO : " + url);
             client.post(getBaseContext(),url,headers,entity,"application/json", asyncResponder);
 
-
             if (!program_name_to_send.equals("")) { //there is a program
                 Log.i("PROGRAM_NAME", program_name_to_send);
                 Integer program_index = programValid.lastIndexOf(program_name_to_send);
@@ -439,7 +374,7 @@ public class GatewayService extends Service {
                 Integer cur_total_size = programSizesTotal.get(program_index);
                 cur_total_size += program_cur_packet_size;
                 programSizesTotal.set(program_index, cur_total_size);
-                send_program();
+                send_program(cur_peripheral);
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -735,7 +670,7 @@ public class GatewayService extends Service {
         return netInfo != null && netInfo.isConnectedOrConnecting();
     }
 
-    public boolean do_sensors() {
+    public boolean do_sensors(Peripheral cur_peripheral) {
         Log.w(top, "do_sensors()");
         Intent intent = new Intent(this, GatewayService.class);
 
@@ -1000,8 +935,7 @@ public class GatewayService extends Service {
         Log.w(top, "send_ack()");
     }
 
-
-    private void send_program() {
+    private void send_program(Peripheral cur_peripheral) {
         Log.w(top, "send_program()");
         Log.i("SENDING_PROGRAM", "send_program()");
         JSONObject gatdProgramParams = new JSONObject();
@@ -1027,6 +961,7 @@ public class GatewayService extends Service {
 
     private void scanLeDevice(final boolean enable) {
         if (enable & !paused & !mScanning) {
+            if (!mBluetoothAdapter.isEnabled()) mBluetoothAdapter.enable();
             mScanHandler.postDelayed(new Runnable() { @Override public void run() { scanLeDevice(false); } }, SCAN_PERIOD);
             try { mScanning = mBluetoothAdapter.startLeScan(mLeScanCallback); } catch (Exception e) { e.printStackTrace(); }
         } else {
@@ -1035,10 +970,9 @@ public class GatewayService extends Service {
                 mBluetoothAdapter.stopLeScan(mLeScanCallback);
                 mScanning = false;
             } catch (Exception e) { e.printStackTrace(); }
-//            if (radioSilenceCount++ > 3) {
-//                mBluetoothAdapter.disable();
-//                mBluetoothAdapter.enable();
-//            }
+            if (radioSilenceCount++ > 3) {
+                mBluetoothAdapter.disable();
+            }
 
         }
     }
@@ -1052,6 +986,7 @@ public class GatewayService extends Service {
                 Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
                 /** TESTING FOR OPO TODO: REMOVE **/
                 if (device.getName()!=null && device.getName().equals("Cloudcomm")) {
+                    Peripheral cur_peripheral = new Peripheral();
                     cur_peripheral.empty();
                     cur_peripheral.TRANSPARENT=true;
                     cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()]=device.getAddress();
@@ -1061,7 +996,7 @@ public class GatewayService extends Service {
                     cur_peripheral.FLAGS[Peripheral.ENUM.ip_address.ordinal()]="676F6F2E676C2F6A524D784530000000";
                     if (!urlMap.containsKey("676F6F2E676C2F6A524D784530000000")) urlMap.put("676F6F2E676C2F6A524D784530000000","http://gatewaycloud.elasticbeanstalk.com");
                     deviceMap.put(device.getAddress(), device);
-                    post();
+                    post(cur_peripheral);
                 } else
                 /** END: TESTING FOR OPO **/
                     parseStuff(device, rssi, scanRecord);
@@ -1120,276 +1055,3 @@ public class GatewayService extends Service {
     }
 
 }
-
-//public class GatewayService extends IntentService implements SensorEventListener {
-//
-//    private SensorManager mSensorManager;
-//    private LocationManager mLocationManager;
-//
-//    private final static long LOCATION_WAIT_TIME = 300000l;
-//
-//    private  final static String INTENT_TRUE = "TRUE";
-//
-//    private final static String INTENT_SENSOR_ACCEL = "ACCEL";
-//    private final static String INTENT_SENSOR_TEMP = "TEMP";
-//    private final static String INTENT_SENSOR_GPS = "GPS";
-//    private final static String INTENT_SENSOR_AMBIENT = "AMBIENT";
-//    private final static String INTENT_SENSOR_HUMIDITY = "HUMIDITY";
-//
-//
-//    private Sensor mTemp;
-//    private Sensor mHumidity;
-//    private Sensor mAmbient;
-//
-//    public GatewayService() {
-//        super("IN SENSOR INTENT");
-//    }
-//
-//    @Override
-//    protected void onHandleIntent(Intent intent) {
-//        // Normally we would do some work here, like download a file.
-//        // For our sample, we just sleep for 5 seconds.
-//        Log.w("INTENT", "IN SENSOR INTENT");
-//
-//
-//
-//    }
-//
-//    @Override
-//    public void onCreate() {
-//        /*
-//        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-// 7
-//        if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) != null) {
-//            mTemp = mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
-//
-//        } else {
-//            Log.w("VAL_SENSOR_ERROR", "no temp!");
-//        }
-//        mHumidity = mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
-//        mAmbient = mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-//        mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-//        */
-//
-//    }
-//
-//    @Override
-//    public int onStartCommand(Intent intent, int flags, int startId) {
-//
-//
-//        Toast.makeText(this, "service starting", Toast.LENGTH_SHORT).show();
-//        /*
-//        List<Sensor> deviceSensors = mSensorManager.getSensorList(Sensor.TYPE_ALL); //FIRST TIME TO CHECK THE FUCKER
-//        Log.w("VAL_SENSOR_LIST", deviceSensors.toString());
-//
-//        if (intent != null && intent.getExtras() != null) {
-//            try {
-//                if (intent.getExtras().getString(INTENT_SENSOR_ACCEL).equals(INTENT_TRUE)) {
-//                    Log.w("sensor_debug", "starting accel intent");
-//                    do_accel();
-//                }
-//                if (intent.getExtras().getString(INTENT_SENSOR_AMBIENT).equals(INTENT_TRUE)) {
-//                    Log.w("sensor_debug", "starting ambient intent");
-//                    do_ambient();
-//                }
-//                if (intent.getExtras().getString(INTENT_SENSOR_GPS).equals(INTENT_TRUE)) {
-//                    Log.w("sensor_debug", "starting gps intent");
-//                    do_gps();
-//                }
-//                if (intent.getExtras().getString(INTENT_SENSOR_HUMIDITY).equals(INTENT_TRUE)) {
-//                    Log.w("sensor_debug", "starting humidity intent");
-//                    do_humidity();
-//                }
-//                if (intent.getExtras().getString(INTENT_SENSOR_TEMP).equals(INTENT_TRUE)) {
-//                    Log.w("sensor_debug", "starting temp intent");
-//                    do_temp();
-//                }
-//            }
-//            catch (IOError b) {
-//                Log.w("ERRRRRRR", "IOERR");
-//            }
-//        }
-//        */
-//        return super.onStartCommand(intent,flags,startId);
-//    }
-//
-//
-//    public void do_temp() {
-//        Log.w("top", "doing temp service!");
-//            mSensorManager.registerListener(this, mTemp, SensorManager.SENSOR_DELAY_NORMAL);
-//
-//
-//
-//    }
-//
-//    public void do_humidity() {
-//        Log.w("top", "doing humidity service!");
-//        if (mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY) != null){
-//            mSensorManager.registerListener(this, mHumidity, SensorManager.SENSOR_DELAY_NORMAL);
-//        }
-//        else {
-//            Log.w("VAL_SENSOR_ERROR", "no temp!");
-//        }
-//    }
-//
-//    public void do_gps() {
-//        Log.w("top", "doing gps!");
-//    }
-//
-//    public void do_time() {
-//        Log.w("tag", "doing time!");
-//    }
-//
-//    public void do_ambient() {
-//        Log.w("top", "doing ambient service!");
-//        if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null) {
-//            mSensorManager.registerListener(this, mAmbient, SensorManager.SENSOR_DELAY_NORMAL);
-//        }
-//        else {
-//            Log.w("VAL_SENSOR_ERROR", "no light sensor!");
-//        }
-//    }
-//
-//    public void do_accel() {
-//        Log.w("top", "doing accel service!");
-//    }
-//
-//
-//    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-//    }
-//
-//    public void onSensorChanged(SensorEvent event) {
-//        Log.w("VAL_SENSOR_CHANGED", event.sensor.getName());
-//
-//
-//
-//    }
-//
-//    /*
-//    private Location getLocationByProvider(String provider) {
-//        Location location = null;
-//        try {
-//            if (mLocationManager.isProviderEnabled(provider)) {
-//                location = mLocationManager.getLastKnownLocation(provider);
-//            }
-//        } catch (IllegalArgumentException e) { }
-//        return location;
-//    }
-//
-//
-//    // Call to generate listeners that request the phones location.
-//    private void updateLocation () {
-//
-//        for (String s : mLocationManager.getAllProviders()) {
-//            mLocationManager.requestLocationUpdates(s, LOCATION_WAIT_TIME, 0.0f, new LocationListener() {
-//
-//                @Override
-//                public void onLocationChanged(Location location) {
-//                    // Once we get a new location cancel our location updating
-//                    mLocationManager.removeUpdates(this);
-//                }
-//
-//                @Override
-//                public void onProviderDisabled(String provider) { }
-//
-//                @Override
-//                public void onProviderEnabled(String provider) { }
-//
-//                @Override
-//                public void onStatusChanged(String provider, int status, Bundle extras) { }
-//            });
-//        }
-//    }
-//    */
-//
-//    /*
-//    @Override
-//    public void onCreate() {
-//
-//        IntentFilter ifilter = new IntentFilter();
-//        ifilter.addAction(INTENT_ACCEL);
-//        ifilter.addAction(INTENT_GPS_FINE);
-//        ifilter.addAction(INTENT_TEMP);
-//        this.registerReceiver(mSensorTypeReceiver, ifilter);
-//
-//
-//
-//        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-//        mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-//
-//    }
-//
-//    private void broadcastIntent (Intent lIntent) {
-//        //lIntent.setPackage("edu.umich.eecs.Gateway");
-//        //sendBroadcast(lIntent);
-//    }
-//
-//    protected void onResume() {
-//        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
-//    }
-//
-//    protected void onPause() {
-//        mSensorManager.unregisterListener(this);
-//    }
-//
-//
-//
-//    private BroadcastReceiver mSensorTypeReceiver = new BroadcastReceiver() {
-//
-//        @Override
-//        public void onReceive(Context context, Intent intent) {
-//            if (intent.getAction().equals(INTENT_TEMP)) {
-//                do_temp();
-//            }
-//        }
-//    };
-//
-//    public void do_temp() {
-//        Log.w("top", "do_temp");
-//    }
-//
-//
-//    @Override
-//    public IBinder onBind(Intent arg0) {
-//        // Service does not allow binding
-//        return null;
-//    }
-//
-//
-//
-//    // GPS
-//    private Location getLocationByProvider(String provider) {
-//        Location location = null;
-//        try {
-//            if (mLocationManager.isProviderEnabled(provider)) {
-//                location = mLocationManager.getLastKnownLocation(provider);
-//            }
-//        } catch (IllegalArgumentException e) { }
-//        return location;
-//    }
-//
-//    private void updateLocation () {
-//
-//        for (String s : mLocationManager.getAllProviders()) {
-//            mLocationManager.requestLocationUpdates(s, LOCATION_WAIT_TIME, 0.0f, new LocationListener() {
-//
-//                @Override
-//                public void onLocationChanged(Location location) {
-//                    // Once we get a new location cancel our location updating
-//                    mLocationManager.removeUpdates(this);
-//                }
-//
-//                @Override
-//                public void onProviderDisabled(String provider) { }
-//
-//                @Override
-//                public void onProviderEnabled(String provider) { }
-//
-//                @Override
-//                public void onStatusChanged(String provider, int status, Bundle extras) { }
-//            });
-//        }
-//    }
-//    */
-//
-//}
