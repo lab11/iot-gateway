@@ -270,36 +270,23 @@ public class GatewayService extends Service {
         String PROGRAM_TYPE = final_binary_str.substring(16, 20);
         String DATA = a.substring(37);
 
-        if (TRANSPARENT.equals("1")) { //DONE WITH TRANSPARENT BIT
-            Log.w("POINT", "TRANSPARENT FORWARD");
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()] = IP;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.rate.ordinal()] = RATE;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()] = DATA;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()] = devAddress;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()] = devName;
-            cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()] = QOS;
-            cur_peripheral.TRANSPARENT = true;
-
-        } else {
-            Log.w("POINT", "PEEK FORWARD");
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()] = IP;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.rate.ordinal()] = RATE;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()] = QOS;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()] = PROGRAM_TYPE;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()] = DATA;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()] = devAddress;
-            cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()] = devName;
-            cur_peripheral.TRANSPARENT = false;
-        }
+        cur_peripheral.TRANSPARENT = TRANSPARENT.equals("1");
+        Log.w("POINT", cur_peripheral.TRANSPARENT ? "TRANSPARENT FORWARD" : "PEEK FORWARD");
+        cur_peripheral.FLAGS[Peripheral.ENUM.ip_address.ordinal()] = IP;
+        cur_peripheral.FLAGS[Peripheral.ENUM.rate.ordinal()] = RATE;
+        cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()] = QOS;
+        cur_peripheral.FLAGS[Peripheral.ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
+        cur_peripheral.FLAGS[Peripheral.ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
+        cur_peripheral.FLAGS[Peripheral.ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
+        cur_peripheral.FLAGS[Peripheral.ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
+        cur_peripheral.FLAGS[Peripheral.ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
+        cur_peripheral.FLAGS[Peripheral.ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
+        cur_peripheral.FLAGS[Peripheral.ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
+        cur_peripheral.FLAGS[Peripheral.ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
+        cur_peripheral.FLAGS[Peripheral.ENUM.program_type.ordinal()] = PROGRAM_TYPE;
+        cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()] = DATA;
+        cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()] = devAddress;
+        cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()] = devName;
 
         //          debug cloud
         try {
@@ -312,9 +299,7 @@ public class GatewayService extends Service {
             gatdParams.put("TRANSPARENT",TRANSPARENT);
             gatdParams.put("RATE", RATE);
             gatdParams.put("QOS", QOS);
-            if (TRANSPARENT.equals("0")) {
-                gatdParams.put("SENSORS", SENSORS);
-            }
+            if (TRANSPARENT.equals("0"))  gatdParams.put("SENSORS", SENSORS);
             gatdParams.put("PROGRAM", PROGRAM_TYPE);
             gatdParams.put("DATA", DATA);
             StringEntity entity = new StringEntity(gatdParams.toString());
@@ -333,16 +318,12 @@ public class GatewayService extends Service {
 
         //DO SENSORS
         Integer peripheral_program_level;
-        if (TRANSPARENT.equals("0")) { //DONE WITH TRANSPARENT BIT
-            if (do_sensors()) { //all sensors were fine
-                Log.w("POINT", "SENSORS DONE!");
-                peripheral_program_level = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.program_type.ordinal()], 2);
-            } else {
-                Log.w("POINT", "SENSORS NOT ABLE!");
-                return false;
-            }
+        if ((TRANSPARENT.equals("0") && !do_sensors())) { //DONE WITH TRANSPARENT BIT
+            Log.w("POINT", "SENSORS NOT ABLE!");
+            return false;
         } else {
-            peripheral_program_level = Integer.parseInt(cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.program_type.ordinal()], 2);
+            Log.w("POINT", "SENSORS DONE!");
+            peripheral_program_level = Integer.parseInt(cur_peripheral.FLAGS[Peripheral.ENUM.program_type.ordinal()], 2);
         }
         switch_grant(peripheral_program_level);
         return true;
@@ -428,23 +409,17 @@ public class GatewayService extends Service {
             final JSONObject gatdDataParams = new JSONObject();
             gatdDataParams.put("TYPE", "data");
             String IP;
-            if (cur_peripheral.TRANSPARENT) {
-                gatdDataParams.put("DEVICE_ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
-                gatdDataParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
-                gatdDataParams.put("DATA", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]);
-                gatdDataParams.put("QOS", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()]);
-                IP = cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()];
-            } else {
+            if (!cur_peripheral.TRANSPARENT) {
                 for (int i = 0; i < cur_peripheral.DATA_TO_PEEK.size(); i++) {
                     String[] key_val = cur_peripheral.DATA_TO_PEEK.get(i).split(" ");
                     gatdDataParams.put(key_val[0], key_val[1]);
                 }
-                gatdDataParams.put("DEVICE_ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
-                gatdDataParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
-                gatdDataParams.put("DATA", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.data_blob.ordinal()]);
-                gatdDataParams.put("QOS", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()]);
-                IP = cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.ip_address.ordinal()];
             }
+            gatdDataParams.put("DEVICE_ID", cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()]);
+            gatdDataParams.put("NAME", cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]);
+            gatdDataParams.put("DATA", cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]);
+            gatdDataParams.put("QOS", cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]);
+            IP = cur_peripheral.FLAGS[Peripheral.ENUM.ip_address.ordinal()];
             final StringEntity entity = new StringEntity(gatdDataParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
             String url = urlMap.get(IP);
@@ -606,7 +581,7 @@ public class GatewayService extends Service {
                             mBluetoothGatt.writeCharacteristic(ccmanager);
                         } else
                         /** END: INITIAL DEFRAG MANAGER WRITE FOR OPO CLOUDCOMM **/
-                        characteristicAction(mBluetoothGatt);
+                            characteristicAction(mBluetoothGatt);
                     } else if (message.arg2==BluetoothGatt.GATT_SUCCESS && notifyList.containsKey(characteristic)) {
                         /** DEFRAG MANAGER WRITE ACK FOR OPO CLOUDCOMM **/
                         if (ccManagerMap.containsKey(characteristic)) {
@@ -625,7 +600,7 @@ public class GatewayService extends Service {
                             mBluetoothGatt.writeCharacteristic(ccmanager);
                             count++;
                         } else {
-                        /** END: DEFRAG MANAGER WRITE ACK FOR OPO CLOUDCOMM **/
+                            /** END: DEFRAG MANAGER WRITE ACK FOR OPO CLOUDCOMM **/
                             notifyList.get(characteristic).put(getHexString(characteristic.getValue()));
                         }
                     }
@@ -785,10 +760,10 @@ public class GatewayService extends Service {
         // 4. if hw doesn't exist, adds to failable_hw to be skipped or not with level
         // 5. if user doesn't grant, adds to sensor_access to be skipped or not with level
 
-        for (int i = Peripheral.PEEK_ENUM.gps.ordinal(); i <= Peripheral.PEEK_ENUM.ambient.ordinal(); i++) {
+        for (int i = Peripheral.ENUM.gps.ordinal(); i <= Peripheral.ENUM.ambient.ordinal(); i++) {
 //            Log.w("sensor_debug", "TEST");
-            if (cur_peripheral.PEEK_FLAGS[i].equals("1")) {
-                if (i == Peripheral.PEEK_ENUM.accel.ordinal()) {
+            if (cur_peripheral.FLAGS[i].equals("1")) {
+                if (i == Peripheral.ENUM.accel.ordinal()) {
                     if (cur_settings.getBoolean("accel_agreement", true)) {
                         Log.w("sensor_debug", "adding accel to intent");
                         String key_val = "ACCELEROMETER ";
@@ -799,7 +774,7 @@ public class GatewayService extends Service {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW ACCEL");
                         sensor_access += "accel";
                     }
-                } else if (i == Peripheral.PEEK_ENUM.time.ordinal()) {
+                } else if (i == Peripheral.ENUM.time.ordinal()) {
                     if (cur_settings.getBoolean("time_agreement", true)) {
                         Log.w("sensor_debug", "adding time to intent");
                         String key_val = "GWTIME ";
@@ -809,7 +784,7 @@ public class GatewayService extends Service {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW TIME");
                         sensor_access += "time";
                     }
-                } else if (i == Peripheral.PEEK_ENUM.temp.ordinal()) {
+                } else if (i == Peripheral.ENUM.temp.ordinal()) {
                     if (cur_settings.getBoolean("temp_agreement", true)) {
                         Log.w("sensor_debug", "adding temp to intent");
                         String key_val = "TEMPERATURE ";
@@ -820,7 +795,7 @@ public class GatewayService extends Service {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW temp");
                         sensor_access += "temp";
                     }
-                } else if (i == Peripheral.PEEK_ENUM.gps.ordinal()) {
+                } else if (i == Peripheral.ENUM.gps.ordinal()) {
                     if (cur_settings.getBoolean("gps_agreement", true)) {
                         Log.w("sensor_debug", "adding gps to intent");
                         allowsGPS = true; //for a specific level
@@ -836,7 +811,7 @@ public class GatewayService extends Service {
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW gps");
                     }
-                } else if (i == Peripheral.PEEK_ENUM.humidity.ordinal()) {
+                } else if (i == Peripheral.ENUM.humidity.ordinal()) {
                     if (cur_settings.getBoolean("humidity_agreement", true)) {
                         Log.w("sensor_debug", "adding humidity to intent");
                         String key_val = "HUMIDITY ";
@@ -847,7 +822,7 @@ public class GatewayService extends Service {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW humidity");
                         sensor_access += "humidity";
                     }
-                } else if (i == Peripheral.PEEK_ENUM.pic.ordinal()) {
+                } else if (i == Peripheral.ENUM.pic.ordinal()) {
                     if (cur_settings.getBoolean("user_camera_agreement", true)) {
                         Log.w("sensor_debug", "doing picture sensor");
                         do_popup_pic();
@@ -862,7 +837,7 @@ public class GatewayService extends Service {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW pic");
                         sensor_access += "pic";
                     }
-                } else if (i == Peripheral.PEEK_ENUM.text.ordinal()) {
+                } else if (i == Peripheral.ENUM.text.ordinal()) {
                     if (cur_settings.getBoolean("user_input_agreement", true)) {
                         Log.w("sensor_debug", "doing text sensor");
                         do_popup_text();
@@ -876,7 +851,7 @@ public class GatewayService extends Service {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW input");
                         sensor_access += "input";
                     }
-                } else if (i == Peripheral.PEEK_ENUM.ambient.ordinal()) {
+                } else if (i == Peripheral.ENUM.ambient.ordinal()) {
                     if (cur_settings.getBoolean("ambient_agreement", true)) {
                         Log.w("sensor_debug", "adding ambient to intent");
                         String key_val = "LIGHT ";
@@ -892,7 +867,7 @@ public class GatewayService extends Service {
         }
 
         //Check to see if the failure is ok based on peripheral_qos
-        Integer periph_qos = Integer.parseInt(cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.qos.ordinal()], 2);
+        Integer periph_qos = Integer.parseInt(cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()], 2);
         boolean is_able = true;
         if (failable_hw.length() != 0 || sensor_access.length() != 0) { //so hw doesn't support some sensor or user doesn't allow some sensor
             if (periph_qos == Peripheral.QOS_ENUM.REQ_NONE.ordinal() ||
@@ -1038,13 +1013,8 @@ public class GatewayService extends Service {
             gatdProgramParams.put("PROGRAM_PAY", program_pay_to_send);
             gatdProgramParams.put("TOTAL_SIZE", programSizesTotal.get(program_index));
             gatdProgramParams.put("THIS_SIZE", program_cur_packet_size);
-            if (cur_peripheral.TRANSPARENT) {
-                gatdProgramParams.put("DEVICE_ID", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]);
-                gatdProgramParams.put("NAME", cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]);
-            } else {
-                gatdProgramParams.put("DEVICE_ID", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_address.ordinal()]);
-                gatdProgramParams.put("NAME", cur_peripheral.PEEK_FLAGS[Peripheral.PEEK_ENUM.dev_name.ordinal()]);
-            }
+            gatdProgramParams.put("DEVICE_ID", cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()]);
+            gatdProgramParams.put("NAME", cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]);
             StringEntity entity = new StringEntity(gatdProgramParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
             client.post(getBaseContext(),"http://gatd.eecs.umich.edu:8081/SgYPCHTR5a", entity, "application/json", new AsyncHttpResponseHandler() {
@@ -1084,11 +1054,11 @@ public class GatewayService extends Service {
                 if (device.getName()!=null && device.getName().equals("Cloudcomm")) {
                     cur_peripheral.empty();
                     cur_peripheral.TRANSPARENT=true;
-                    cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_address.ordinal()]=device.getAddress();
-                    cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.dev_name.ordinal()]="Opo";
-                    cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.data_blob.ordinal()]="0";
-                    cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.qos.ordinal()]="0111";
-                    cur_peripheral.TRANSPARENT_FLAGS[Peripheral.TRANSPARENT_ENUM.ip_address.ordinal()]="676F6F2E676C2F6A524D784530000000";
+                    cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()]=device.getAddress();
+                    cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]="Opo";
+                    cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]="0";
+                    cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]="0111";
+                    cur_peripheral.FLAGS[Peripheral.ENUM.ip_address.ordinal()]="676F6F2E676C2F6A524D784530000000";
                     if (!urlMap.containsKey("676F6F2E676C2F6A524D784530000000")) urlMap.put("676F6F2E676C2F6A524D784530000000","http://gatewaycloud.elasticbeanstalk.com");
                     deviceMap.put(device.getAddress(), device);
                     post();

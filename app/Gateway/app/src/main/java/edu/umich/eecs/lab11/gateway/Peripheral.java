@@ -7,15 +7,9 @@ import java.util.ArrayList;
  */
 public class Peripheral {
 
-    public String[] PEEK_FLAGS;
-    public String[] TRANSPARENT_FLAGS;
+    public String[] FLAGS;
     public ArrayList<String> DATA_TO_PEEK = new ArrayList<String>();
     public boolean TRANSPARENT;
-
-    public enum TRANSPARENT_ENUM {
-        ip_address, transparent_flag, rate, program_type, qos,
-        data_blob, dev_address, dev_name
-    }
 
     public enum QOS_ENUM {
         REQ_ALL, REQ_ALL_NO_RATE,
@@ -23,7 +17,7 @@ public class Peripheral {
         REQ_NONE_BUT_CONNECTION, REQ_NONE_BUT_SERVICE, REQ_NONE
     }
 
-    public enum PEEK_ENUM {
+    public enum ENUM {
         ip_address, transparent_flag, rate,
         qos, gps, temp, humidity, time, accel, text, pic, ambient,
         program_need, program_type,
@@ -35,8 +29,7 @@ public class Peripheral {
     }
 
     public void empty() {
-        PEEK_FLAGS = new String[50];
-        TRANSPARENT_FLAGS = new String[50];
+        FLAGS = new String[50];
         DATA_TO_PEEK.clear();
     }
 
@@ -44,8 +37,7 @@ public class Peripheral {
         //UUID_FLAGS = new int[7];
         //SENSOR_FLAGS = new int[8];
         //ADV_FLAGS = new int[2];
-        PEEK_FLAGS = new String[50];
-        TRANSPARENT_FLAGS = new String[50];
+        FLAGS = new String[50];
         TRANSPARENT = false;
     }
 
