@@ -22,10 +22,11 @@
                     <tr>
                         <th data-field="time">TIMESTAMP</th>
                         <th data-field="DEVICE_ID">PERIPHERAL ID</th>
+                        <th data-field="NAME">NAME</th>
                         <th data-field="RSSI">RSSI</th>
-                        <th data-field="DESTINATION">DESTINATION IP</th>
-                        <th data-field="TRANSPARENT">TFLG</th>
-                        <th data-field="RATE">RATE</th>
+                        <th data-field="DESTINATION">SEND TO</th>
+                        <!--<th data-field="TRANSPARENT">TFLG</th>-->
+                        <!-- <th data-field="RATE">RATE</th> -->
                         <th data-field="QOS">QOS</th>
                         <th data-field="PROGRAM">PROG</th>
                         <th data-field="DATA">DATA</th>
@@ -43,8 +44,8 @@
                         <th data-field="DATA">DATA</th>
                         <th data-field="GWTIME">GW TIME</th>
                         <th data-field="LOCATION">LOCATION</th>
-                        <th data-field="TEMPERATURE">TEMP</th>
-                        <th data-field="HUMIDITY">HUM</th>
+                        <!-- <th data-field="TEMPERATURE">TEMP</th> -->
+                        <!-- <th data-field="HUMIDITY">HUM</th> -->
                         <th data-field="ACCELEROMETER">ACCEL</th>
                         <th data-field="LIGHT">LIGHT</th>
                         <th data-field="TEXT">TEXT</th>
@@ -78,7 +79,7 @@
       socket = io.connect('gatd.eecs.umich.edu:8082/stream');
       socket.on('connect', function (dat) { socket.emit('query', {'profile_id':'SgYPCHTR5a','time': 2*60*1000 } ); });
       socket.on('data', function (dat) {
-        dat.time=new Date(dat.time).toLocaleTimeString();
+        dat.time=new Date(dat.time-3*60*1000+10000).toLocaleTimeString();
         if (dat.TYPE == "debug") {
             debug_data.unshift(dat);
             $('#debug-table').bootstrapTable('load', debug_data );

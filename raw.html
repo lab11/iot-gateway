@@ -1,0 +1,52 @@
+<!-- {#Name: Gateway Example#}
+{#Desc: Data From Tessel via Open Smartphone Gateway implementation.#}
+
+{% extends "base_intro.jinja" %}
+
+{% block includes %} -->
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF8"/>
+
+
+<style>
+    * {transition:1s;}
+    body {font-size:20pt; font-weight:100;}
+    span  {color: rgba(30,30,30,.6); font-weight:100; display:inline-block;}
+    pre {text-align: left; margin:5px;}
+    #status {background: rgb(0,127,255); color:rgba(230,230,230,.8); width:300px; height:300px; border-radius:50%; padding:50px 0; margin:10px auto; font-size:20pt;}
+    #graph1 {font-size:10pt; font-weight: 200;}
+    .Some {-webkit-animation: move .5s; animation: move .5s;}
+    @-webkit-keyframes move {25%{-webkit-transform:translate(-50px)} 50%{-webkit-transform:translate(60px)} 75%{-webkit-transform:translate(-10px)} 100%{-webkit-transform:translate(0px)}}
+    @keyframes move {25%{transform:translate(-50px)} 50%{transform:translate(60px)} 75%{transform:translate(-20px)} 100%{transform:translate(0px)}}
+</style>
+<script src="http://gatd.eecs.umich.edu/bower_components/socket.io-client/dist/socket.io.min.js"></script> <!--Not live-->
+<script src="http://gatd.eecs.umich.edu/bower_components/jquery/dist/jquery.min.js"></script> <!--Not live-->
+<script src="http://gatd.eecs.umich.edu/bower_components/underscore/underscore.js"></script>
+<link href="http://gatd.eecs.umich.edu/css/base.css" media="all" rel="stylesheet" type="text/css" />
+<script src="http://gatd.eecs.umich.edu/js/jquery.flot.custom-0.8.2.js"></script>
+<script src="http://gatd.eecs.umich.edu/js/jquery.flot.resize.js"></script>
+<script src="http://gatd.eecs.umich.edu/bower_components/flot/jquery.flot.time.js"></script>
+<script src="http://gatd.eecs.umich.edu/js/jquery.grapher.js"></script>
+<script src="http://gatd.eecs.umich.edu/js/gatd_graph.js"></script>
+<script type='text/javascript' src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>
+<link href="http://gatd.eecs.umich.edu/css/gatd_graph.css" media="all" rel="stylesheet" type="text/css" />
+<link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+</head>
+<body>
+
+<div id="body"></div>
+
+
+<script>
+var PROFILE_ID = 'SgYPCHTR5a'; 
+onload = function() {
+    socket = io.connect('gatd.eecs.umich.edu:8082/stream');
+    socket.on('connect', function (data) { socket.emit('query', { 'profile_id': PROFILE_ID, 'time': 5*60*1000, 'TYPE':'data'}); });
+    socket.on('data',    function (data) { console.log(data); $("#body").html("<pre>"+JSON.stringify(data,null,4)+"</pre>" + $("#body").html()); });
+    
+}
+</script>
+</html>
+<!-- {% endblock %} -->
