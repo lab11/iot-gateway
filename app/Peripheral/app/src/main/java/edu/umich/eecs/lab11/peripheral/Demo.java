@@ -95,7 +95,7 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
                 .setConnectable(true).setTimeout(0);
         dataBuilder = new AdvertiseData.Builder()
 //                .setIncludeDeviceName(true)
-                .addServiceData(shortUUID(ad_value.substring(0,4)),toByteArray(ad_value.substring(4)));
+                .addServiceData(shortUUID(ad_value.substring(0, 4)),toByteArray(ad_value.substring(4)));
         if (cur_settings.getBoolean("advertise_switch",false))
             bleAdvertiser.startAdvertising(settingsBuilder.build(), dataBuilder.build(), advertiseCallback);
     }
@@ -149,58 +149,49 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
 
 //        String IPTEXT = cur_settings.getString("ip_text", "20014701F1013202");
         String url = cur_settings.getString("ip_text", "goo.gl/IJ6naX");
-        String IPTEXT = toIpText(url.getBytes());
-        String transparentBTN = boolToStr(cur_settings.getBoolean("peripheral_transparent_req", true));
-        String rateTEXT = String.valueOf(cur_settings.getInt("data_rate", -1));
-        String levelTEXT = String.valueOf(cur_settings.getInt("level_rate", -1));
+        String IPTEXT = toUrlHex(url.getBytes());
+//        String transparentBTN = boolToStr(cur_settings.getBoolean("peripheral_transparent_req", true));
+//        String rateTEXT = String.valueOf(cur_settings.getInt("data_rate", -1));
+        String reliabilityTEXT = String.valueOf(cur_settings.getInt("reliability_rate", 0));
         String gpsBTN = boolToStr(cur_settings.getBoolean("peripheral_gps_req", true));
-        String tempBTN = boolToStr(cur_settings.getBoolean("peripheral_temp_req", true));
-        String humidityBTN = boolToStr(cur_settings.getBoolean("peripheral_humidity_req", true));
+        String uiBTN = boolToStr(cur_settings.getBoolean("peripheral_ui_req", true));
+        String ipBTN = boolToStr(cur_settings.getBoolean("peripheral_ip_req", true));
         String timeBTN = boolToStr(cur_settings.getBoolean("peripheral_time_req", true));
         String accelBTN = boolToStr(cur_settings.getBoolean("peripheral_accel_req", true));
         String textBTN = boolToStr(cur_settings.getBoolean("peripheral_text_req", true));
         String userPicBTN = boolToStr(cur_settings.getBoolean("peripheral_pic_req", true));
         String ambientBTN = boolToStr(cur_settings.getBoolean("peripheral_ambient_req", true));
-        String programTEXT = String.valueOf(cur_settings.getInt("incentive_rate", -1));
+        String programTEXT = String.valueOf(cur_settings.getInt("incentive_rate", 0));
         String dataTEXT = cur_settings.getString("data_text", "FF");
 
-        rateTEXT = Integer.toString(Integer.valueOf(rateTEXT.replaceAll("\\s+","")), 2);
-        while (rateTEXT.length() != 3) {
-            rateTEXT = "0" + rateTEXT;
-        }
-        String first_nib = transparentBTN + rateTEXT;
-        Log.w("DEMO_VAL_FIRST NIB BITS", first_nib);
-        first_nib = String.format("%21X", Long.parseLong(first_nib,2)).replaceAll("\\s+","");
-        Log.w("DEMO_VAL_FIRST NIB", first_nib);
-
-        levelTEXT = Integer.toString(Integer.valueOf(levelTEXT.replaceAll("\\s+","")), 2);
-
-        String second_nib = levelTEXT;
-        Log.w("DEMO_VAL_SECOND NIB BITS", second_nib);
-        second_nib = String.format("%21X", Long.parseLong(second_nib,2)).replaceAll("\\s+","");
-        Log.w("DEMO_VAL_SECOND NIB", second_nib);
-
-
-        String sensor_str = gpsBTN + tempBTN + humidityBTN;
-        sensor_str += timeBTN + accelBTN + textBTN + userPicBTN;
-        sensor_str += ambientBTN;
-        Log.w("DEMO_VAL_THIRD_FOURTH NIB BITS", sensor_str);
-        String third_fourth_nib = String.format("%21X", Long.parseLong(sensor_str,2)).replaceAll("\\s+","");
-        if (third_fourth_nib.length() == 1) {
-            third_fourth_nib = "0" + third_fourth_nib;
-        }
-        Log.w("DEMO_VAL_THIRD_FOURTH NIB", third_fourth_nib);
+//        rateTEXT = Integer.toString(Integer.valueOf(rateTEXT.replaceAll("\\s+","")), 2);
+//        while (rateTEXT.length() != 3) {
+//            rateTEXT = "0" + rateTEXT;
+//        }
+//        String first_nib = transparentBTN + rateTEXT;
+//        Log.w("DEMO_VAL_FIRST NIB BITS", first_nib);
+//        first_nib = String.format("%21X", Long.parseLong(first_nib,2)).replaceAll("\\s+","");
+//        Log.w("DEMO_VAL_FIRST NIB", first_nib);
 
         programTEXT = Integer.toString(Integer.valueOf(programTEXT.replaceAll("\\s+","")), 2);
-        if (programTEXT.length() != 4) {
-            programTEXT = "0" + programTEXT;
-        }
-        String fifth_nib = programTEXT;
-        fifth_nib = String.format("%21X", Long.parseLong(fifth_nib,2)).replaceAll("\\s+","");
-        Log.w("DEMO_VAL_FIFTH NIB", fifth_nib);
+        if (programTEXT.length() != 4) programTEXT = "0" + programTEXT;
+        String first_nib = String.format("%21X", Long.parseLong(programTEXT,2)).replaceAll("\\s+","");
+        Log.w("DEMO_VAL_FIRST NIB", first_nib);
 
-        final_str = IPTEXT + first_nib + second_nib;
-        final_str += third_fourth_nib + fifth_nib + dataTEXT;
+        reliabilityTEXT = Integer.toString(Integer.valueOf(reliabilityTEXT.replaceAll("\\s+","")), 2);
+        Log.w("DEMO_VAL_SECOND NIB BITS", reliabilityTEXT);
+        String second_nib = String.format("%21X", Long.parseLong(reliabilityTEXT,2)).replaceAll("\\s+","");
+        Log.w("DEMO_VAL_SECOND NIB", second_nib);
+
+        String sensor_str = timeBTN + gpsBTN + accelBTN + ambientBTN + textBTN + userPicBTN + uiBTN + ipBTN;
+        Log.w("DEMO_VAL_THIRD_FOURTH NIB BITS", sensor_str);
+        String third_fourth_nib = String.format("%21X", Long.parseLong(sensor_str,2)).replaceAll("\\s+","");
+        if (third_fourth_nib.length() == 1) third_fourth_nib = "0" + third_fourth_nib;
+        Log.w("DEMO_VAL_THIRD_FOURTH NIB", third_fourth_nib);
+
+//        final_str = IPTEXT + first_nib + second_nib;
+//        final_str += third_fourth_nib + fifth_nib + dataTEXT;
+        final_str = IPTEXT + first_nib + second_nib + third_fourth_nib + dataTEXT;
         Log.w(tag, final_str);
         cur_settings.edit().putString("advertisement_value",final_str).commit();
 //        setTitle("Adv: " + final_str);
@@ -246,9 +237,9 @@ public class Demo extends PreferenceActivity implements SharedPreferences.OnShar
         return ParcelUuid.fromString("0000" + s + "-0000-1000-8000-00805F9B34FB");
     }
 
-    public String toIpText(byte[] ba) {
+    public String toUrlHex(byte[] ba) {
         StringBuilder str = new StringBuilder();
-        for(int i = 0; i < 16; i++)
+        for(int i = 0; i < 14; i++)
             if (i<ba.length) str.append(String.format("%02X", ba[i]));
             else str.append("00");
         return str.toString();
