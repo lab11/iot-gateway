@@ -20,14 +20,14 @@ public class Peripheral {
     }
 
     public enum ENUM {
-        ip_address, transparent, rate, sensors,
-        qos, gps, temp, humidity, time, accel, text, pic, ambient,
+        url, transparent, rate, sensors, qos,
+        time, gps, accel, ambient, text, pic, ui, ip,
         program_need, program_type,
         data_blob, dev_address, dev_name
     }
 
     public enum SENSOR_ENUM {
-        gps, temp, humidity, time, accel, text, pic, ambient
+        time, gps, accel, ambient, text, pic, ui, ip
     }
 
     public void empty() {
@@ -47,38 +47,40 @@ public class Peripheral {
         //SENSOR_FLAGS = new int[8];
         //ADV_FLAGS = new int[2];
         FLAGS = new String[50];
-        TRANSPARENT = false;
+//        TRANSPARENT = false;
     }
 
-    public Peripheral(String devName, String devAddress, int rssi, String a, String IP) {
+    public Peripheral(String devName, String devAddress, int rssi, String a, String fullURL) {
         FLAGS = new String[50];
 
-        String final_binary_str = hexToBinary(a.substring(32));
+        String final_binary_str = hexToBinary(a.substring(28));
         Log.w("PARSE_FINAL", final_binary_str);
-        String RATE = final_binary_str.substring(1, 4);
-        String QOS = final_binary_str.substring(4, 8);
+//        String RATE = final_binary_str.substring(1, 4);
+        String PROGRAM_TYPE = final_binary_str.substring(0,4);
+        String RELIABILITY = final_binary_str.substring(4, 8);
         String SENSORS = final_binary_str.substring(8, 16);
-        String PROGRAM_TYPE = final_binary_str.substring(16, 20);
-        String DATA = a.substring(37);
+        String DATA = a.substring(32);
 
-        TRANSPARENT = final_binary_str.substring(0, 1).equals("1");
-        Log.w("POINT", TRANSPARENT ? "TRANSPARENT FORWARD" : "PEEK FORWARD");
-        FLAGS[Peripheral.ENUM.ip_address.ordinal()] = IP;
-        FLAGS[Peripheral.ENUM.rate.ordinal()] = RATE;
-        FLAGS[Peripheral.ENUM.qos.ordinal()] = QOS;
-        FLAGS[Peripheral.ENUM.sensors.ordinal()] = SENSORS;
-        FLAGS[Peripheral.ENUM.accel.ordinal()] = String.valueOf(SENSORS.charAt(4)); //Jesus is this hacky... Hardcoded to match sensor order... Can change to peripheral.SENSOR_ENUM.x.ordinal()
-        FLAGS[Peripheral.ENUM.temp.ordinal()] = String.valueOf(SENSORS.charAt(1));
-        FLAGS[Peripheral.ENUM.time.ordinal()] = String.valueOf(SENSORS.charAt(3));
-        FLAGS[Peripheral.ENUM.gps.ordinal()] = String.valueOf(SENSORS.charAt(0));
-        FLAGS[Peripheral.ENUM.humidity.ordinal()] = String.valueOf(SENSORS.charAt(2));
-        FLAGS[Peripheral.ENUM.pic.ordinal()] = String.valueOf(SENSORS.charAt(6));
-        FLAGS[Peripheral.ENUM.text.ordinal()] = String.valueOf(SENSORS.charAt(5));
-        FLAGS[Peripheral.ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(7));
+        TRANSPARENT = SENSORS.equals("00000000");
+        FLAGS[Peripheral.ENUM.url.ordinal()] = fullURL;
+//        FLAGS[Peripheral.ENUM.rate.ordinal()] = RATE;
+        FLAGS[Peripheral.ENUM.qos.ordinal()] = RELIABILITY;
         FLAGS[Peripheral.ENUM.program_type.ordinal()] = PROGRAM_TYPE;
         FLAGS[Peripheral.ENUM.data_blob.ordinal()] = DATA;
         FLAGS[Peripheral.ENUM.dev_address.ordinal()] = devAddress;
         FLAGS[Peripheral.ENUM.dev_name.ordinal()] = devName;
+        if (!TRANSPARENT) {
+            FLAGS[Peripheral.ENUM.sensors.ordinal()] = SENSORS;
+            FLAGS[Peripheral.ENUM.time.ordinal()]    = String.valueOf(SENSORS.charAt(0));
+            FLAGS[Peripheral.ENUM.gps.ordinal()]     = String.valueOf(SENSORS.charAt(1));
+            FLAGS[Peripheral.ENUM.accel.ordinal()]   = String.valueOf(SENSORS.charAt(2)); // Can change to peripheral.SENSOR_ENUM.x.ordinal()
+            FLAGS[Peripheral.ENUM.ambient.ordinal()] = String.valueOf(SENSORS.charAt(3));
+            FLAGS[Peripheral.ENUM.text.ordinal()]    = String.valueOf(SENSORS.charAt(4));
+            FLAGS[Peripheral.ENUM.pic.ordinal()]     = String.valueOf(SENSORS.charAt(5));
+            FLAGS[Peripheral.ENUM.ui.ordinal()]      = String.valueOf(SENSORS.charAt(6));
+            FLAGS[Peripheral.ENUM.ip.ordinal()]      = String.valueOf(SENSORS.charAt(7));
+        }
+
     }
     
 }

@@ -11,24 +11,20 @@
     <PreferenceCategory android:title="Phone Access Permissions">
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="gps_agreement"
-            android:title="GPS" />
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="temp_agreement"
-            android:title="Temperature" />
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="humidity_agreement"
-            android:title="Humidity" />
-        <CheckBoxPreference
-            android:defaultValue="true"
             android:key="time_agreement"
             android:title="Time" />
         <CheckBoxPreference
             android:defaultValue="true"
+            android:key="gps_agreement"
+            android:title="GPS" />
+        <CheckBoxPreference
+            android:defaultValue="true"
             android:key="accel_agreement"
             android:title="Accelerometer" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="ambient_agreement"
+            android:title="Ambient Light" />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="user_input_agreement"
@@ -39,8 +35,13 @@
             android:title="Camera Request" />
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="ambient_agreement"
-            android:title="Ambient Light" />
+            android:key="ui_agreement"
+            android:title="GUI Request" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="ip_agreement"
+            android:enabled="false"
+            android:title="IP Over BLE" />
     </PreferenceCategory>
     <PreferenceCategory android:title="Incentive Programs">
         <com.robobunny.SeekBarPreference

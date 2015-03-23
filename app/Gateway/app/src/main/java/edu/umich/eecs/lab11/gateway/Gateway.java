@@ -77,8 +77,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.preferences);
             mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
-            if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) == null) getPreferenceManager().findPreference("temp_agreement").setEnabled(false);
-            if (mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY) == null) getPreferenceManager().findPreference("humidity_agreement").setEnabled(false);
+//            if (mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) == null) getPreferenceManager().findPreference("temp_agreement").setEnabled(false);
+//            if (mSensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY) == null) getPreferenceManager().findPreference("humidity_agreement").setEnabled(false);
             if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) getPreferenceManager().findPreference("accel_agreement").setEnabled(false);
             if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) == null) getPreferenceManager().findPreference("ambient_agreement").setEnabled(false);
         }

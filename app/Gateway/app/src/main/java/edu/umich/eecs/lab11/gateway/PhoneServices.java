@@ -112,7 +112,7 @@ public class PhoneServices {
         // 4. if hw doesn't exist, adds to failable_hw to be skipped or not with level
         // 5. if user doesn't grant, adds to sensor_access to be skipped or not with level
 
-        for (int i = Peripheral.ENUM.gps.ordinal(); i <= Peripheral.ENUM.ambient.ordinal(); i++) {
+        for (int i = Peripheral.ENUM.time.ordinal(); i <= Peripheral.ENUM.ip.ordinal(); i++) {
 //            Log.w("sensor_debug", "TEST");
             if (cur_peripheral.FLAGS[i].equals("1")) {
                 if (i == Peripheral.ENUM.accel.ordinal()) {
@@ -136,17 +136,17 @@ public class PhoneServices {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW TIME");
                         sensor_access += "time";
                     }
-                } else if (i == Peripheral.ENUM.temp.ordinal()) {
-                    if (preferences.getBoolean("temp_agreement", true)) {
-                        Log.w("sensor_debug", "adding temp to intent");
-                        String key_val = "TEMPERATURE ";
-                        String sensor = sensors.get(Sensor.TYPE_AMBIENT_TEMPERATURE);
-                        key_val += sensor;
-                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
-                    } else {
-                        Log.w("USER_AGREEMENT", "DOESNT ALLOW temp");
-                        sensor_access += "temp";
-                    }
+//                } else if (i == Peripheral.ENUM.temp.ordinal()) {
+//                    if (preferences.getBoolean("temp_agreement", true)) {
+//                        Log.w("sensor_debug", "adding temp to intent");
+//                        String key_val = "TEMPERATURE ";
+//                        String sensor = sensors.get(Sensor.TYPE_AMBIENT_TEMPERATURE);
+//                        key_val += sensor;
+//                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
+//                    } else {
+//                        Log.w("USER_AGREEMENT", "DOESNT ALLOW temp");
+//                        sensor_access += "temp";
+//                    }
                 } else if (i == Peripheral.ENUM.gps.ordinal()) {
                     if (preferences.getBoolean("gps_agreement", true)) {
                         Log.w("sensor_debug", "adding gps to intent");
@@ -163,17 +163,17 @@ public class PhoneServices {
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW gps");
                     }
-                } else if (i == Peripheral.ENUM.humidity.ordinal()) {
-                    if (preferences.getBoolean("humidity_agreement", true)) {
-                        Log.w("sensor_debug", "adding humidity to intent");
-                        String key_val = "HUMIDITY ";
-                        String sensor = sensors.get(Sensor.TYPE_RELATIVE_HUMIDITY);
-                        key_val += sensor;
-                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
-                    } else {
-                        Log.w("USER_AGREEMENT", "DOESNT ALLOW humidity");
-                        sensor_access += "humidity";
-                    }
+//                } else if (i == Peripheral.ENUM.humidity.ordinal()) {
+//                    if (preferences.getBoolean("humidity_agreement", true)) {
+//                        Log.w("sensor_debug", "adding humidity to intent");
+//                        String key_val = "HUMIDITY ";
+//                        String sensor = sensors.get(Sensor.TYPE_RELATIVE_HUMIDITY);
+//                        key_val += sensor;
+//                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
+//                    } else {
+//                        Log.w("USER_AGREEMENT", "DOESNT ALLOW humidity");
+//                        sensor_access += "humidity";
+//                    }
                 } else if (i == Peripheral.ENUM.pic.ordinal()) {
                     if (preferences.getBoolean("user_camera_agreement", true)) {
                         Log.w("sensor_debug", "doing picture sensor");

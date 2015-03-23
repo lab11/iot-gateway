@@ -160,19 +160,15 @@ public class GatewayService extends Service {
     public void parse(String devName, String devAddress, int rssi, String a) {
         Log.w(top, "parse()");
 
-        String t = a.substring(2,4) + a.substring(0,2) + a.substring(4,32) + "    PARSE_:" + a.substring(32);
-        Log.w("PARSING A REAL THING!", t);
-        String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,32);
-        if (urlMap.get(IP) == null) {
+        String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,28);
+        String fullURL = urlMap.get(IP);
+        if (fullURL == null) {
             unshortUrl(IP); // resolve url for peripheral's next advertisement
             return;
         }
 
-        StringBuilder shortUrl = new StringBuilder();
-        for (int i = 0; i < IP.length(); i+=2) {
-            String str =IP.substring(i, i + 2);
-            if (!str.equals("00")) shortUrl.append((char) Integer.parseInt(str, 16));
-        }
+        String t = fullURL + "    PARSE_:" + a.substring(28);
+        Log.w("API MATCH!", t);
 
         Peripheral cur_peripheral = new Peripheral(devName,devAddress,rssi,a,IP);
 
@@ -183,11 +179,11 @@ public class GatewayService extends Service {
             gatdParams.put("DEVICE_ID", cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()]);
             gatdParams.put("NAME", cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]);
             gatdParams.put("RSSI", rssi);
-            gatdParams.put("DESTINATION", shortUrl.toString());
-            gatdParams.put("TRANSPARENT",cur_peripheral.TRANSPARENT);
-            gatdParams.put("RATE", cur_peripheral.FLAGS[Peripheral.ENUM.rate.ordinal()]);
+            gatdParams.put("DESTINATION", fullURL);
+//            gatdParams.put("TRANSPARENT",cur_peripheral.TRANSPARENT);
+//            gatdParams.put("RATE", cur_peripheral.FLAGS[Peripheral.ENUM.rate.ordinal()]);
             gatdParams.put("QOS", cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]);
-            if (!cur_peripheral.TRANSPARENT)  gatdParams.put("SENSORS", cur_peripheral.FLAGS[Peripheral.ENUM.sensors.ordinal()]);
+            if (!cur_peripheral.TRANSPARENT) gatdParams.put("SENSORS", cur_peripheral.FLAGS[Peripheral.ENUM.sensors.ordinal()]);
             gatdParams.put("PROGRAM", cur_peripheral.FLAGS[Peripheral.ENUM.program_type.ordinal()]);
             gatdParams.put("DATA", cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]);
             StringEntity entity = new StringEntity(gatdParams.toString());
@@ -305,7 +301,7 @@ public class GatewayService extends Service {
             gatdDataParams.put("NAME", cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]);
             gatdDataParams.put("DATA", cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]);
             gatdDataParams.put("QOS", cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]);
-            IP = cur_peripheral.FLAGS[Peripheral.ENUM.ip_address.ordinal()];
+            IP = cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()];
             final StringEntity entity = new StringEntity(gatdDataParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
             String url = urlMap.get(IP);
@@ -708,7 +704,7 @@ public class GatewayService extends Service {
                     cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]="Opo";
                     cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]="0";
                     cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]="0111";
-                    cur_peripheral.FLAGS[Peripheral.ENUM.ip_address.ordinal()]="676F6F2E676C2F6A524D784530000000";
+                    cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()]="676F6F2E676C2F6A524D784530000000";
                     if (!urlMap.containsKey("676F6F2E676C2F6A524D784530000000")) urlMap.put("676F6F2E676C2F6A524D784530000000","http://gatewaycloud.elasticbeanstalk.com");
                     deviceMap.put(device.getAddress(), device);
                     post(cur_peripheral);
