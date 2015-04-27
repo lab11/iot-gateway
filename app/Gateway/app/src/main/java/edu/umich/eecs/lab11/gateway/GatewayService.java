@@ -44,12 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-
-/**
- * Created by nklugman on 11/26/14.
- */
-
-public class GatewayService extends Service {
+public class GatewayService extends Service implements SharedPreferences.OnSharedPreferenceChangeListener {
     private ArrayList<String>  programURL         = new ArrayList<String> (Arrays.asList("http://payme.com/api","http://youpay.com/iot"));
     private ArrayList<String>  programValid       = new ArrayList<String> (Arrays.asList("PayMe","YOUPAY"));
     private ArrayList<Integer> programMaxPay      = new ArrayList<Integer>(Arrays.asList(8,15));
@@ -87,7 +82,9 @@ public class GatewayService extends Service {
     private SharedPreferences cur_settings;
 
     private String deviceConnected = "";
-    private Intent thisIntent;
+    private static Intent thisIntent;
+
+    private  static GatewayService instance = null;
 
     @Override
     public void onCreate() {
@@ -117,6 +114,7 @@ public class GatewayService extends Service {
             Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
             stopSelf();
         }
+        instance = this;
     }
 
     @Override
@@ -137,6 +135,7 @@ public class GatewayService extends Service {
         phoneServices.start();
 
         Toast.makeText(this, "Gateway Service Started", Toast.LENGTH_SHORT).show();
+        cur_settings.registerOnSharedPreferenceChangeListener(this);
 
         // Initializes list view adapter.
         scanLeDevice(true);
@@ -148,7 +147,9 @@ public class GatewayService extends Service {
         mScanning = false;
         paused = true;
         mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        cur_settings.unregisterOnSharedPreferenceChangeListener(this);
         phoneServices.stop();
+        instance = null;
         super.onDestroy();
     }
 
@@ -156,6 +157,10 @@ public class GatewayService extends Service {
     public IBinder onBind(Intent intent) {
         return null;
     }
+
+    public static boolean isInstanceCreated() { return instance != null; }
+
+    public static Intent getIntent() { return thisIntent; }
 
     public void parse(String devName, String devAddress, int rssi, String a) {
         Log.w(top, "parse()");
@@ -170,7 +175,7 @@ public class GatewayService extends Service {
         String t = fullURL + "    PARSE_:" + a.substring(28);
         Log.w("API MATCH!", t);
 
-        Peripheral cur_peripheral = new Peripheral(devName,devAddress,rssi,a,IP);
+        Peripheral cur_peripheral = new Peripheral(devName,devAddress,rssi,a,fullURL);
 
         //          debug cloud
         try {
@@ -285,12 +290,10 @@ public class GatewayService extends Service {
     }
 
     private void post(Peripheral cur_peripheral) {
-
         // data cloud
         try {
             final JSONObject gatdDataParams = new JSONObject();
             gatdDataParams.put("TYPE", "data");
-            String IP;
             if (!cur_peripheral.TRANSPARENT) {
                 for (int i = 0; i < cur_peripheral.DATA_TO_PEEK.size(); i++) {
                     String[] key_val = cur_peripheral.DATA_TO_PEEK.get(i).split(" ");
@@ -301,17 +304,18 @@ public class GatewayService extends Service {
             gatdDataParams.put("NAME", cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]);
             gatdDataParams.put("DATA", cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]);
             gatdDataParams.put("QOS", cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]);
-            IP = cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()];
+            String url = cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()];
             final StringEntity entity = new StringEntity(gatdDataParams.toString());
             entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-            String url = urlMap.get(IP);
             org.apache.http.Header[] headers = {
                     new BasicHeader("DEVICE_ID",gatdDataParams.getString("DEVICE_ID")),
                     new BasicHeader("QOS",gatdDataParams.getString("QOS"))
             };
-            Log.i("POSTING_DATA", gatdDataParams.toString());
-            System.out.println("SENDING TO : " + url);
-            client.post(getBaseContext(),url,headers,entity,"application/json", asyncResponder);
+            if (cur_peripheral.TRANSPARENT || cur_peripheral.FLAGS[Peripheral.ENUM.ui.ordinal()].equals("0")) {
+                Log.i("POSTING_DATA", gatdDataParams.toString());
+                System.out.println("SENDING TO : " + url);
+                client.post(getBaseContext(), url, headers, entity, "application/json", asyncResponder);
+            }
 
             if (!program_name_to_send.equals("")) { //there is a program
                 Log.i("PROGRAM_NAME", program_name_to_send);
@@ -710,7 +714,10 @@ public class GatewayService extends Service {
                     post(cur_peripheral);
                 } else
                 /** END: TESTING FOR OPO **/
-                    parseStuff(device, rssi, scanRecord);
+                /** TESTING FOR ROBOSMART TODO: REMOVE **/
+                if (device.getName()!=null && device.getName().contains("SHL ")) parse(device.getName(),device.getAddress(),rssi,"6F676F2E676C2F35475147396B007702");
+                /** END: TESTING FOR ROBOSMART **/
+            parseStuff(device, rssi, scanRecord);
             } catch (Exception e) { e.printStackTrace(); }
         }
     };
@@ -732,6 +739,21 @@ public class GatewayService extends Service {
         }
         new unshortTask().execute(shortUrlHex,shortUrl.toString());
         return shortUrl.toString();
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
+        if (s.equals("pause")) {
+            if (cur_settings.getBoolean("pause", false)) {
+                mScanning = false;
+                paused = true;
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            } else {
+                paused = false;
+                scanLeDevice(true);
+            }
+
+        }
     }
 
     private class unshortTask extends AsyncTask<String, Void, Boolean> {
@@ -760,6 +782,7 @@ public class GatewayService extends Service {
             if (type==22 && data[0]>=' ') {
                 Log.w("MATCH", "Type matched, submitting for parsing: " + device.getName());
                 deviceMap.put(device.getAddress(), device);
+                System.out.println("HEX : " + getHexString(data));
                 parse(device.getName(), device.getAddress(), rssi, getHexString(data));
             }
             index += length; //Advance

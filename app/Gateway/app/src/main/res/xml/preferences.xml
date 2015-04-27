@@ -28,15 +28,15 @@
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="user_input_agreement"
-            android:title="User Input" />
+            android:title="Barometer" />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="user_camera_agreement"
-            android:title="Camera Request" />
+            android:title="Magnetic Field" />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="ui_agreement"
-            android:title="GUI Request" />
+            android:title="Summon (Calls Web App for Peripheral)" />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="ip_agreement"
@@ -62,5 +62,16 @@
             android:key="data_rate"
             android:max="7"/>
     </PreferenceCategory>
+
+
+        <Preference
+            android:defaultValue="false"
+            android:key="pause"
+            android:selectable="false"
+            />
+
+    <Preference
+        android:key="ui_devices"
+        android:selectable="false" />
 
 </PreferenceScreen>

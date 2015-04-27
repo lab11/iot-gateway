@@ -1,6 +1,9 @@
 package edu.umich.eecs.lab11.gateway;
 
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -19,6 +22,9 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.util.SparseArray;
 import android.widget.EditText;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Created by thomas on 3/12/15.
@@ -44,6 +50,10 @@ public class PhoneServices {
 
     private String popup_text_string = "";
     private String popup_pic_string = "";
+
+    private NotificationManager notificationManager;
+    private Notification.Builder notificationBuilder;
+    private int notificationCount = 0;
     
     public PhoneServices(Context c) {
         context = c;
@@ -51,23 +61,28 @@ public class PhoneServices {
         packageManager = context.getPackageManager();
         sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         preferences = PreferenceManager.getDefaultSharedPreferences(context);
+        preferences.edit().putStringSet("ui_devices",new HashSet<String>()).commit();
         System.out.println("AVAILABLE SENSORS : " + sensorManager.getSensorList(Sensor.TYPE_ALL).toString());
         sensors = new SparseArray<String>();
-        sensors.put(Sensor.TYPE_AMBIENT_TEMPERATURE, "");
-        sensors.put(Sensor.TYPE_RELATIVE_HUMIDITY,"");
+        sensors.put(Sensor.TYPE_MAGNETIC_FIELD, "");
+        sensors.put(Sensor.TYPE_PRESSURE, "");
         sensors.put(Sensor.TYPE_ACCELEROMETER, "");
-        sensors.put(Sensor.TYPE_LIGHT,"");
+        sensors.put(Sensor.TYPE_LIGHT, "");
     }
 
     public void start() {
-        sensorManager.registerListener(sensorListener, sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE), SensorManager.SENSOR_DELAY_NORMAL, 5000000);
-        sensorManager.registerListener(sensorListener, sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY), SensorManager.SENSOR_DELAY_NORMAL, 5000000);
+        sensorManager.registerListener(sensorListener, sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_NORMAL, 5000000);
+        sensorManager.registerListener(sensorListener, sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE), SensorManager.SENSOR_DELAY_NORMAL, 5000000);
         sensorManager.registerListener(sensorListener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL, 5000000);
         sensorManager.registerListener(sensorListener, sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT), SensorManager.SENSOR_DELAY_NORMAL, 5000000);
+        PendingIntent resultPendingIntent = PendingIntent.getActivity(context, 0, (new Intent()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).setClass(context, UiList.class), PendingIntent.FLAG_UPDATE_CURRENT);
+        notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationBuilder = (new Notification.Builder(context)).setContentTitle("Interactive Devices Nearby").setContentText("BLE Peripherals closeby have UIs available.").setContentIntent(resultPendingIntent).setFullScreenIntent(resultPendingIntent,true).setPriority(Notification.PRIORITY_HIGH).setSmallIcon(R.drawable.ic_launcher).setVibrate(new long[]{100, 250, 100, 250});
     }
 
     public void stop() {
         sensorManager.unregisterListener(sensorListener);
+        preferences.edit().putStringSet("ui_devices",new HashSet<String>()).commit();
     }
 
     private SensorEventListener sensorListener = new SensorEventListener() {
@@ -78,8 +93,8 @@ public class PhoneServices {
         public final void onSensorChanged(SensorEvent event) {
             Integer type = event.sensor.getType();
             switch (type) {
-                case Sensor.TYPE_AMBIENT_TEMPERATURE: sensors.put(type,event.values[0]+"C"); break;
-                case Sensor.TYPE_RELATIVE_HUMIDITY: sensors.put(type,event.values[0]+"%"); break;
+                case Sensor.TYPE_MAGNETIC_FIELD: sensors.put(type,"["+event.values[0]+","+event.values[1]+","+event.values[2]+"]uT"); break;
+                case Sensor.TYPE_PRESSURE: sensors.put(type,event.values[0]+"hPa"); break;
                 case Sensor.TYPE_ACCELEROMETER: sensors.put(type,"["+event.values[0]+","+event.values[1]+","+event.values[2]+"]m/s^2"); break;
                 case Sensor.TYPE_LIGHT: sensors.put(type,event.values[0]+"lx"); break;
             }
@@ -174,34 +189,60 @@ public class PhoneServices {
 //                        Log.w("USER_AGREEMENT", "DOESNT ALLOW humidity");
 //                        sensor_access += "humidity";
 //                    }
-                } else if (i == Peripheral.ENUM.pic.ordinal()) {
+                } else if (i == Peripheral.ENUM.pic.ordinal()) { // TODO: replace all camera/pic references with magnetometer
                     if (preferences.getBoolean("user_camera_agreement", true)) {
-                        Log.w("sensor_debug", "doing picture sensor");
-                        popupPic();
-                        String key_val = "IMAGE ";
-                        key_val += popup_pic_string;
-                        Log.w("sensor_debug", popup_pic_string);
-                        if (popup_pic_string.length()>0) {
-                            cur_peripheral.DATA_TO_PEEK.add(key_val);
-                            Log.w("sensor_debug", popup_pic_string);
-                        }
+                        Log.w("sensor_debug", "adding magnetic field to intent");
+                        String key_val = "MAGNETIC ";
+                        String sensor = sensors.get(Sensor.TYPE_MAGNETIC_FIELD);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
-                        Log.w("USER_AGREEMENT", "DOESNT ALLOW pic");
+                        Log.w("USER_AGREEMENT", "DOESNT ALLOW magnetic field");
                         sensor_access += "pic";
                     }
                 } else if (i == Peripheral.ENUM.text.ordinal()) {
                     if (preferences.getBoolean("user_input_agreement", true)) {
-                        Log.w("sensor_debug", "doing text sensor");
-                        popupText();
-                        String key_val = "TEXT ";
-                        key_val += popup_text_string;
-                        if (popup_text_string.length()>0) {
-                            cur_peripheral.DATA_TO_PEEK.add(key_val);
-                            Log.w("sensor_debug", popup_text_string);
-                        }
+                        Log.w("sensor_debug", "adding barometer to intent");
+                        String key_val = "BAROMETER ";
+                        String sensor = sensors.get(Sensor.TYPE_PRESSURE);
+                        key_val += sensor;
+                        if (sensor.length()>0) cur_peripheral.DATA_TO_PEEK.add(key_val);
                     } else {
                         Log.w("USER_AGREEMENT", "DOESNT ALLOW input");
                         sensor_access += "input";
+                    }
+                } else if (i == Peripheral.ENUM.ui.ordinal()) {
+                    if (preferences.getBoolean("ui_agreement", true)) {
+                        Log.w("sensor_debug", "doing ui");
+//                        if (preferences.getString(cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()],"null").equals("null")) {
+//                            BetterEditText ui_pref = new BetterEditText(context);
+//                            ui_pref.setTitle(cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]);
+//                        }
+                        Set<String> ui_devices = preferences.getStringSet("ui_devices", new HashSet<String>());
+                        int size = ui_devices.size();
+                        String dev_name = (cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()]!=null) ? " (" + cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()] + ")" : "";
+                        ui_devices.add(cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()] + dev_name + " @ " + cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()]);
+                        if (size != ui_devices.size()) {
+                            preferences.edit().putStringSet("ui_devices", ui_devices).commit();//(cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()], cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()]).apply();
+                            System.out.println("GUI : " + preferences.getStringSet("ui_devices", new HashSet<String>()));
+                            Notification notification = notificationBuilder.setNumber(ui_devices.size()).build();
+//                            notification.flags = Notification.FLAG_
+                            notificationManager.notify(1, notification);
+                            UiList.UiListFragment fragment = UiList.UiListFragment.getInstance();
+                            if (fragment!=null) fragment.onSharedPreferenceChanged(preferences,"ui_devices");
+                        }
+//                        preferences.edit().
+//                        popupWebView(cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()], cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()], cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()]);
+//                        String key_val = "IMAGE ";
+//                        key_val += popup_pic_string;
+//                        Log.w("sensor_debug", popup_pic_string);
+//                        if (popup_pic_string.length()>0) {
+//                            cur_peripheral.DATA_TO_PEEK.add(key_val);
+//                            Log.w("sensor_debug", popup_pic_string);
+//                        }
+                    } else {
+                        Log.w("USER_AGREEMENT", "DOESNT ALLOW pic");
+                        sensor_access += "pic";
                     }
                 } else if (i == Peripheral.ENUM.ambient.ordinal()) {
                     if (preferences.getBoolean("ambient_agreement", true)) {

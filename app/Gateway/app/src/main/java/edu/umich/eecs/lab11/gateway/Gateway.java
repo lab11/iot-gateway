@@ -22,7 +22,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
         super.onCreate(savedInstanceState);
         getFragmentManager().beginTransaction().replace(android.R.id.content, new GatewayFragment()).commit();
         cur_settings = PreferenceManager.getDefaultSharedPreferences(this);
-        if(cur_settings.getBoolean("master_agreement",false)) {
+        if(cur_settings.getBoolean("master_agreement",false) && !GatewayService.isInstanceCreated()) {
             gatewayIntent = new Intent(this,GatewayService.class);
             startService(gatewayIntent);
         }
@@ -64,7 +64,7 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             if (cur_settings.getBoolean("master_agreement", false)) {
                 gatewayIntent = new Intent(this,GatewayService.class);
                 startService(gatewayIntent);
-            } else stopService(gatewayIntent);
+            } else if (GatewayService.isInstanceCreated()) stopService(GatewayService.getIntent());
     }
 
     /**
