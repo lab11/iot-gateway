@@ -83,8 +83,8 @@ router.post('/', function(req, res) {
                             {"uuid":"4a0efa07-e181-4a7f-bd72-094df3e97132","action":"read","value":""}
                         ]
                     }
-                ],
-                "ui":"<html><body style='font-family:sans-serif-thin; font-size:20pt; background:#a00; color:#fff'>TESSEL<br /><br />Room Temperature : 78&deg;<br /><br />Humidity: 15%<br /><br />TIME:<br />10:30 AM</body></html>"
+                ]
+                // "ui":"<html><body style='font-family:sans-serif-thin; font-size:20pt; background:#a00; color:#fff'>TESSEL<br /><br />Room Temperature : 78&deg;<br /><br />Humidity: 15%<br /><br />TIME:<br />10:30 AM</body></html>"
             }));
         } else {
             res.send("RE-RESPOND SUCCESSFUL! DISCONNECT BLE NOW!");
