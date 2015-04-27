@@ -1,23 +1,61 @@
 var express = require('express');
-var router = express.Router();
+var router  = express.Router();
 var request = require('request');
+// var io = require('socket.io')(require('http').Server(express));
+
+var CCUUID      = "00002000-0000-1000-8000-00805f9b34fb";
+var CCDATAUUID  = "00002b00-0000-1000-8000-00805f9b34fb";
+var CCREADYUUID = "00002b04-0000-1000-8000-00805f9b34fb";
 
 var hex2a = function(hexx) {
     var hex = hexx.toString();//force conversion
     var str = '';
-    for (var i = 0, s; i < hex.length; i += 2)
-        str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+    for (var i = 0, s; i < hex.length; i += 2) str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
     return str;
 }
 
 /* GET home page. */
-router.get('/', function(req, res, next) {
-    res.render('index', { title: 'Gateway Cloud' });
-});
+router.get('/', function(req, res, next) { res.render('index', { title: 'Gateway Cloud' }); });
 
+
+/* POST response */
 router.post('/', function(req, res) {
-    console.log(req.body);
-    if (typeof req.body.DEVICE_ID != "undefined" && req.body.DEVICE_ID == "00:07:80:79:31:67")
+    console.log(JSON.stringify(req.body,null,4));
+
+
+    /* OPO */
+
+    if (typeof req.body.NAME != "undefined" && req.body.NAME == "Opo") {
+
+        if (typeof req.body.ATTRIBUTES == "undefined") {
+            res.send(JSON.stringify({
+                "name" : req.body.NAME,
+                "device_id" : req.body.DEVICE_ID,
+                "services":[
+                    {
+                        "uuid": CCUUID,
+                        "characteristics":[
+                            {"uuid":CCDATAUUID,"action":"indicate","ccmanager_uuid":CCREADYUUID,"time":60000,"response":"accumulate"}
+                       ]
+                    } 
+                ]
+            }));
+        } else {
+            res.send("RE-RESPOND SUCCESSFUL! DISCONNECT BLE NOW!");
+            data = req.body;
+            data["OPO"] = req.body.ATTRIBUTES[0];
+            request.post({
+                url:'http://gatd.eecs.umich.edu:8081/SgYPCHTR5a',
+                headers:{"content-type":"application/json"},
+                body:JSON.stringify(data)},
+                function(error,response,body){console.log(body);});
+        }
+    }
+
+
+    /* TESSEL */
+
+    else if (typeof req.body.DEVICE_ID != "undefined" && req.body.DEVICE_ID == "00:07:80:79:31:67")
         if (typeof req.body.ATTRIBUTES == "undefined") {
             res.send(JSON.stringify({
                 "device_id" : "00:07:80:79:31:67",
@@ -39,21 +77,24 @@ router.post('/', function(req, res) {
                             {"uuid":"e101b160-a59b-4f24-97df-6821337b45b2","action":"read","value":""},
                             {"uuid":"7834933b-3f6d-44b3-b38e-8b67a7ed6702","action":"read","value":""},
                             {"uuid":"b08e1773-fbb6-428d-9e4c-d6322f7bf5fe","action":"read","value":""},
-                            {"uuid":"c98e8fd3-5be7-43e0-b35a-951f1a07c25c","action":"read","value":""},
+                            {"uuid":"c98e8fd3-5be7-43e0-b35a-951f1a07c25c","action":"write","value":1,"format":"uint8"},
                             {"uuid":"977840be-8d5c-4805-a329-2f9ddc8db3a3","action":"read","value":""},
                             {"uuid":"bb2ed798-9d0b-41a6-a753-31b16f93281e","action":"read","value":""},
                             {"uuid":"4a0efa07-e181-4a7f-bd72-094df3e97132","action":"read","value":""}
                         ]
                     }
-                ]
+                ],
+                "ui":"<html><body style='font-family:sans-serif-thin; font-size:20pt; background:#a00; color:#fff'>TESSEL<br /><br />Room Temperature : 78&deg;<br /><br />Humidity: 15%<br /><br />TIME:<br />10:30 AM</body></html>"
             }));
         } else {
             res.send("RE-RESPOND SUCCESSFUL! DISCONNECT BLE NOW!");
             data = {"ID":req.body.DEVICE_ID,"version":hex2a(req.body.ATTRIBUTES[0].value)}
             for (i=1; i<req.body.ATTRIBUTES.length; i++) {
-                if (req.body.ATTRIBUTES[i].value.length) {
+                try {
                     var translated = hex2a(req.body.ATTRIBUTES[i].value).split('{')[1].split('}')[0].split(':');
                     data[translated[0].split("\"")[1].toLowerCase()] = translated[1];
+                } catch(e) {
+                    data[req.body.ATTRIBUTES[i].characteristic] = req.body.ATTRIBUTES[i].value;
                 }
             }
             request.post({
@@ -62,7 +103,28 @@ router.post('/', function(req, res) {
                 body:JSON.stringify(data)},
                 function(error,response,body){console.log(body);});
         }
+
+
+    /* OTHER */
+
     else res.send("");
+
+
+    // For logging on demo site
+    request.post({
+        url:'http://gatd.eecs.umich.edu:8081/SgYPCHTR5a',
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify(req.body)},
+        function(error,response,body){console.log(error);});
+
 });
 
 module.exports = router;
+
+
+// io.on('connection', function (socket) {
+//   socket.emit('news', { hello: 'world' });
+//   socket.on('my other event', function (data) {
+//     console.log(data);
+//   });
+// })
