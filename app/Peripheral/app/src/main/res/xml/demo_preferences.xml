@@ -63,15 +63,15 @@
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="peripheral_text_req"
-            android:title="User Input Text" />
+            android:title="Barometer" />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="peripheral_pic_req"
-            android:title="User Input Photo" />
+            android:title="Magnetic Field" />
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="peripheral_ui_req"
-            android:title="GUI on Gateway Device" />
+            android:title="Summon (GUI on Gateway Device)" />
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="peripheral_ip_req"
