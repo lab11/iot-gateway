@@ -10,9 +10,6 @@ import org.apache.cordova.CordovaActivity;
 
 import java.util.Calendar;
 
-/**
- * Created by thomas on 3/23/15.
- */
 public class WebViewActivity extends CordovaActivity {
 
     private String data;

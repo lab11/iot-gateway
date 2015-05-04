@@ -68,6 +68,7 @@ public class UiList extends Activity {
             uiListAdapter = new UiListAdapter();
             setListAdapter(uiListAdapter);
             instance = this;
+            if (!preferences.getBoolean("master_agreement",false)) startActivity(new Intent(getActivity(), Gateway.class));
         }
 
         @Override

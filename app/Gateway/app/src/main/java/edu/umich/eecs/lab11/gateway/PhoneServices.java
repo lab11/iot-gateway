@@ -26,9 +26,6 @@ import android.widget.EditText;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Created by thomas on 3/12/15.
- */
 public class PhoneServices {
     private Context context;
     private SparseArray<String> sensors;
