@@ -81,7 +81,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
     private final Integer SCAN_PERIOD = 10000;
     private SharedPreferences cur_settings;
 
-    private String deviceConnected = "";
+    private ArrayList<BluetoothDevice> deviceConnected = new ArrayList<BluetoothDevice>();
     private static Intent thisIntent;
 
     private  static GatewayService instance = null;
@@ -90,7 +90,6 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
     public void onCreate() {
         super.onCreate();
         cur_settings = PreferenceManager.getDefaultSharedPreferences(this);
-
         phoneServices = new PhoneServices(getApplicationContext());
 
         mScanHandler = new Handler();
@@ -335,7 +334,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
 
         @Override
         public void onSuccess(int statusCode, org.apache.http.Header[] headers, final String responseString) {
-            BluetoothDevice device = deviceMap.get(getRequestHeaders()[0].getValue());
+            BluetoothDevice device = deviceMap.get(getRequestHeaders()[0].getValue()); System.out.println(getRequestHeaders()[0].getValue());
             Integer qos = Integer.parseInt(getRequestHeaders()[1].getValue(), 2);
             System.out.println("RESPONSE : " + responseString);
             try {
@@ -345,6 +344,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                         mHandler.sendMessage(Message.obtain(mHandler,0,2,0,getRequestURI())) && mHandler.sendMessage(Message.obtain(mHandler, 0, 3, 0, device)) ))
                     throw new Exception();
             } catch (Exception e) {
+                e.printStackTrace();
                 if(device!=null &&  mBluetoothManager.getConnectionState(device, BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED) {
                     mBluetoothGatt.disconnect();
                 }
@@ -361,6 +361,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
         BluetoothDevice device;
         org.apache.http.Header[] headers;
         URI uri;
+        Boolean ccUri = false;
         Boolean servicesDiscovered;
         Boolean notifying;
         Boolean scheduled;
@@ -426,7 +427,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                                     /** SET UP FOR OPO CLOUDCOMM SERVICE REQUESTS **/
                                     if ((action.equals("indicate")||action.equals("notify"))&&charObject.has("ccmanager_uuid")) {
                                         BluetoothGattCharacteristic ccmanager = bgs.getCharacteristic(UUID.fromString(charObject.getString("ccmanager_uuid")));
-                                        ccmanager.setValue(1, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
+                                        ccmanager.setValue(1, BluetoothGattCharacteristic.FORMAT_UINT8, 0); //TODO: change write value from 1 to 0
                                         ccManagerMap.put(characteristic, ccmanager);
                                     }
                                     /** END: SET UP FOR OPO CLOUDCOMM SERVICE REQUESTS **/
@@ -476,7 +477,8 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                             System.out.println(getHexString(cData));
                             dataBuilder += getHexString(cData).substring(2);
                             if (seq_num == 255) {
-                                notifyList.get(characteristic).put(dataBuilder);
+                                if (!ccUri) try{ uri = URI.create(dataBuilder); ccUri=true; } catch (Exception e) {}
+                                else notifyList.get(characteristic).put(dataBuilder);
                                 dataBuilder="";
                             }
                             BluetoothGattCharacteristic ccmanager = ccManagerMap.get(characteristic);
@@ -559,12 +561,16 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
             super.onConnectionStateChange(gatt, status, newState);
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.i(tag, "Connected to GATT server.");
-                mHandler.sendMessage(Message.obtain(mHandler,1,gatt));
-                deviceConnected = gatt.getDevice().getAddress();
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                mHandler.sendMessage(Message.obtain(mHandler, 1, gatt));
+                if (deviceConnected.size()>2) deviceConnected.remove(0);
+                if (!deviceConnected.contains(gatt.getDevice())) deviceConnected.add(gatt.getDevice());
+                System.out.println("DEVICES : " + deviceConnected.toString());
+            } else {//if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(tag, "Disconnected from GATT server.");
-                paused=false; scanLeDevice(true);
-                deviceConnected="";
+                if (deviceConnected.size()>2) deviceConnected.get(0).connectGatt(getBaseContext(),false,gattCallback);
+                else {
+                    paused=false; scanLeDevice(true);
+                }
                 gatt.close();
             }
         }
@@ -671,10 +677,10 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
             try { mScanning = mBluetoothAdapter.startLeScan(mLeScanCallback); } catch (Exception e) { e.printStackTrace(); }
         } else {
             if (!paused) {
-                if (radioSilenceCount++ > 3) {
+                if (radioSilenceCount++ > 6) {
                     mScanHandler.postDelayed(new Runnable() {
                         @Override public void run() { startService(thisIntent); scanLeDevice(true);  }
-                    }, 5000);
+                    }, SCAN_PERIOD);
                     mBluetoothAdapter.disable();
                     stopSelf();
                     System.out.println("PERIPHERALS ARE NOT BEING SCANNED. RESTARTING BLUETOOTH.");
@@ -701,21 +707,12 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                 Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
                 /** TESTING FOR OPO TODO: REMOVE **/
                 if (device.getName()!=null && device.getName().equals("Cloudcomm")) {
-                    Peripheral cur_peripheral = new Peripheral();
-                    cur_peripheral.empty();
-                    cur_peripheral.TRANSPARENT=true;
-                    cur_peripheral.FLAGS[Peripheral.ENUM.dev_address.ordinal()]=device.getAddress();
-                    cur_peripheral.FLAGS[Peripheral.ENUM.dev_name.ordinal()]="Opo";
-                    cur_peripheral.FLAGS[Peripheral.ENUM.data_blob.ordinal()]="0";
-                    cur_peripheral.FLAGS[Peripheral.ENUM.qos.ordinal()]="0111";
-                    cur_peripheral.FLAGS[Peripheral.ENUM.url.ordinal()]="676F6F2E676C2F6A524D784530000000";
-                    if (!urlMap.containsKey("676F6F2E676C2F6A524D784530000000")) urlMap.put("676F6F2E676C2F6A524D784530000000","http://gatewaycloud.elasticbeanstalk.com");
+                    parse(device.getName(), device.getAddress(), rssi, "6F676F2E676C2F6A524D78453000770000");
                     deviceMap.put(device.getAddress(), device);
-                    post(cur_peripheral);
-                } else
+                }
                 /** END: TESTING FOR OPO **/
                 /** TESTING FOR ROBOSMART TODO: REMOVE **/
-                if (device.getName()!=null && device.getName().contains("SHL ")) parse(device.getName(),device.getAddress(),rssi,"6F676F2E676C2F35475147396B007702");
+                else if (device.getName()!=null && device.getName().contains("SHL ")) parse(device.getName(),device.getAddress(),rssi,"6F676F2E676C2F35475147396B007702");
                 /** END: TESTING FOR ROBOSMART **/
             parseStuff(device, rssi, scanRecord);
             } catch (Exception e) { e.printStackTrace(); }
