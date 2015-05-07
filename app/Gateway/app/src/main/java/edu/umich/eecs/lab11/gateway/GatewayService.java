@@ -15,7 +15,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
-import android.net.nsd.NsdServiceInfo;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -121,14 +120,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
         // Sets up NSD on local network
         mNsdHelper = new NsdHelper(this);
         mNsdHelper.initializeNsd();
-        NsdServiceInfo service = mNsdHelper.getChosenServiceInfo();
-        if (service != null) {
-            Log.d(TAG, "Connecting.");
-            mConnection.connectToServer(service.getHost(),
-                    service.getPort());
-        } else {
-            Log.d(TAG, "No service to connect to!");
-        }
+
 
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
