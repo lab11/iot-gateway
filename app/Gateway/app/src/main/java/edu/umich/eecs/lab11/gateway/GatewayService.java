@@ -164,7 +164,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
     public void parse(String devName, String devAddress, int rssi, String a) {
         Log.w(top, "parse()");
 
-        String IP = a.substring(2, 4) + a.substring(0,2) + a.substring(4,28);
+        String IP = a.substring(0,28);
         String fullURL = urlMap.get(IP);
         if (fullURL == null) {
             unshortUrl(IP); // resolve url for peripheral's next advertisement
@@ -714,7 +714,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                 /** TESTING FOR ROBOSMART TODO: REMOVE **/
                 else if (device.getName()!=null && device.getName().contains("SHL ")) parse(device.getName(),device.getAddress(),rssi,"6F676F2E676C2F35475147396B007702");
                 /** END: TESTING FOR ROBOSMART **/
-            parseStuff(device, rssi, scanRecord);
+            apiCheck(device, rssi, scanRecord);
             } catch (Exception e) { e.printStackTrace(); }
         }
     };
@@ -768,7 +768,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
         }
     }
 
-    public void parseStuff(BluetoothDevice device, int rssi, byte[] scanRecord) {
+    public void apiCheck(BluetoothDevice device, int rssi, byte[] scanRecord) {
         int index = 0;
         while (index < scanRecord.length) {
             int length = scanRecord[index++];
@@ -776,11 +776,11 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
             int type = scanRecord[index];
             if (type == 0) break; //Done if our record isn't a valid type
             byte[] data = Arrays.copyOfRange(scanRecord, index + 1, index + length);
-            if (type==22 && data[0]>=' ') {
+            if ((type==0x13 || type==0x16) && data[0]>=' ' && data.length>2) {
                 Log.w("MATCH", "Type matched, submitting for parsing: " + device.getName());
                 deviceMap.put(device.getAddress(), device);
-                System.out.println("HEX : " + getHexString(data));
-                parse(device.getName(), device.getAddress(), rssi, getHexString(data));
+                String d = getHexString(data);
+                parse(device.getName(), device.getAddress(), rssi, (type==0x13) ? d : (d.substring(2, 4) + d.substring(0,2) + d.substring(4)) );
             }
             index += length; //Advance
         }
