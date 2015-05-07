@@ -15,6 +15,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
+import android.net.nsd.NsdServiceInfo;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -77,6 +78,15 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
 
     private Integer radioSilenceCount = 0;
 
+    //NSD
+    NsdHelper mNsdHelper;
+    private Handler mUpdateHandler;
+    public static final String TAG = "Gateway";
+    ChatConnection mConnection;
+
+
+
+
     // Pauses scanning after SCAN_PERIOD milliseconds, restarts 1 second later
     private final Integer SCAN_PERIOD = 10000;
     private SharedPreferences cur_settings;
@@ -107,6 +117,18 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
         // BluetoothAdapter through BluetoothManager.
         mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = mBluetoothManager.getAdapter();
+
+        // Sets up NSD on local network
+        mNsdHelper = new NsdHelper(this);
+        mNsdHelper.initializeNsd();
+        NsdServiceInfo service = mNsdHelper.getChosenServiceInfo();
+        if (service != null) {
+            Log.d(TAG, "Connecting.");
+            mConnection.connectToServer(service.getHost(),
+                    service.getPort());
+        } else {
+            Log.d(TAG, "No service to connect to!");
+        }
 
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
@@ -200,6 +222,15 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
 
         run_forward(cur_peripheral);
 
+    }
+
+
+    public void advertiseNsdService(String service_name, String msg) {
+        if(mConnection.getLocalPort() > -1) {
+            mNsdHelper.registerBLEService(mConnection.getLocalPort(), "TEST", "_ble._tcp.");
+        } else {
+            Log.d(TAG, "ServerSocket isn't bound.");
+        }
     }
 
     public boolean run_forward(Peripheral cur_peripheral) {

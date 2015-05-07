@@ -17,6 +17,8 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
     private SharedPreferences cur_settings;
     private Intent gatewayIntent;
 
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -26,8 +28,10 @@ public class Gateway extends PreferenceActivity implements SharedPreferences.OnS
             gatewayIntent = new Intent(this,GatewayService.class);
             startService(gatewayIntent);
         }
-
     }
+
+
+
 
     @Override
     protected void onResume() {
