@@ -120,6 +120,14 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
         // Sets up NSD on local network
         mNsdHelper = new NsdHelper(this);
         mNsdHelper.initializeNsd();
+        mUpdateHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                String chatLine = msg.getData().getString("msg");
+                Log.w(tag,chatLine);
+            }
+        };
+        mConnection = new ChatConnection(mUpdateHandler);
 
 
         // Checks if Bluetooth is supported on the device.
