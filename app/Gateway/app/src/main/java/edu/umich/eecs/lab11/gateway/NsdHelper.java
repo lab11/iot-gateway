@@ -14,7 +14,7 @@ public class NsdHelper {
     NsdManager.DiscoveryListener mDiscoveryListener;
     NsdManager.RegistrationListener mRegistrationListener;
 
-    public static final String SERVICE_TYPE = "_http._tcp.";
+    public static final String SERVICE_TYPE = "_gateway._tcp.";
 
     public static final String TAG = "NsdHelper";
     public String mServiceName = "NsdChat";
@@ -134,7 +134,6 @@ public class NsdHelper {
         serviceInfo.setPort(port);
         serviceInfo.setServiceName(mServiceName);
         serviceInfo.setServiceType(SERVICE_TYPE);
-
         mNsdManager.registerService(
                 serviceInfo, NsdManager.PROTOCOL_DNS_SD, mRegistrationListener);
 
@@ -145,8 +144,7 @@ public class NsdHelper {
         serviceInfo.setPort(port);
         serviceInfo.setServiceName(name);
         serviceInfo.setServiceType(type);
-        mNsdManager.registerService(
-                serviceInfo, NsdManager.PROTOCOL_DNS_SD, mRegistrationListener);
+        try { mNsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, mRegistrationListener); } catch (Exception e) {}
     }
 
     public void discoverServices() {

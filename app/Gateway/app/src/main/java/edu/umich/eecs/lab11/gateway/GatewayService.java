@@ -171,6 +171,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
         cur_settings.unregisterOnSharedPreferenceChangeListener(this);
         phoneServices.stop();
         instance = null;
+        mNsdHelper.tearDown();
         super.onDestroy();
     }
 
@@ -227,7 +228,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
 
     public void advertiseNsdService(String service_name, String msg) {
         if(mConnection.getLocalPort() > -1) {
-            mNsdHelper.registerBLEService(mConnection.getLocalPort(), "TEST", "_ble._tcp.");
+            mNsdHelper.registerBLEService(mConnection.getLocalPort(), msg, service_name);
         } else {
             Log.d(TAG, "ServerSocket isn't bound.");
         }
@@ -800,6 +801,8 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
     }
 
     public void parseStuff(BluetoothDevice device, int rssi, byte[] scanRecord) {
+        scanLeDevice(true);
+        advertiseNsdService("_gateway._tcp.",device.getName()+" ("+device.getAddress()+")");
         int index = 0;
         while (index < scanRecord.length) {
             int length = scanRecord[index++];
