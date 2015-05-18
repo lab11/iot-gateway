@@ -802,7 +802,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
 
     public void parseStuff(BluetoothDevice device, int rssi, byte[] scanRecord) {
         scanLeDevice(true);
-        advertiseNsdService("_gateway._tcp.",device.getName()+" ("+device.getAddress()+")");
+        advertiseNsdService("_http._tcp.",device.getName()+" ("+device.getAddress()+")");
         int index = 0;
         while (index < scanRecord.length) {
             int length = scanRecord[index++];
