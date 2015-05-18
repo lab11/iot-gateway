@@ -344,7 +344,6 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                         mHandler.sendMessage(Message.obtain(mHandler,0,2,0,getRequestURI())) && mHandler.sendMessage(Message.obtain(mHandler, 0, 3, 0, device)) ))
                     throw new Exception();
             } catch (Exception e) {
-                e.printStackTrace();
                 if(device!=null &&  mBluetoothManager.getConnectionState(device, BluetoothProfile.GATT)==BluetoothProfile.STATE_CONNECTED) {
                     mBluetoothGatt.disconnect();
                 }
@@ -387,6 +386,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                             mHandler.sendMessage(Message.obtain(mHandler, 1, mBluetoothGatt));
                         else {
                             notifying = false;
+                            ccUri = false;
                             dataBuilder = "";
                             notifyList = new HashMap<BluetoothGattCharacteristic, JSONArray>();
                             servicesDiscovered = false;
@@ -477,7 +477,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                             System.out.println(getHexString(cData));
                             dataBuilder += getHexString(cData).substring(2);
                             if (seq_num == 255) {
-                                if (!ccUri) try{ uri = URI.create(dataBuilder); ccUri=true; } catch (Exception e) {}
+                                if (!ccUri) try{ uri = URI.create(hexToAscii(dataBuilder)); ccUri=true; } catch (Exception e) {e.printStackTrace();}
                                 else notifyList.get(characteristic).put(dataBuilder);
                                 dataBuilder="";
                             }
@@ -496,6 +496,12 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                     /** END: CONTINUE NORMAL STUFF AFTER INITIAL DEFRAG MANAGER WRITE FOR OPO CLOUDCOMM **/
                 } else if (message.what==4) {
                     if (notifyList.containsKey(message.obj)) mBluetoothGatt.readCharacteristic((BluetoothGattCharacteristic) message.obj);
+                } else if (message.what==5) {
+                    BluetoothGatt gatt = (BluetoothGatt) message.obj;
+                    if (deviceConnected.size()>2) deviceConnected.get(0).connectGatt(getBaseContext(),false,gattCallback);
+                    else { paused=false; scanLeDevice(true); }
+                    gatt.close();
+                    if (notifying) send();
                 }
                 return true;
             } catch (Exception e) {e.printStackTrace(); return false;}
@@ -527,7 +533,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                 }
             } else if (!scheduled) {
                 final Handler handler = new Handler();
-                handler.postDelayed(new Runnable() { @Override public void run() { send(); } }, notifying ? 60000 : 0);
+                if(!notifying) send();
                 scheduled = true;
             }
         }
@@ -546,6 +552,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                 }
                 reResponse.put("ATTRIBUTES", charArray);
                 System.out.println("RSEND : " + reResponse);
+                System.out.println("TO : " + uri.toString());
                 final StringEntity entity = new StringEntity(reResponse.toString());
                 entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
                 client.post(getBaseContext(), uri.toString(), headers, entity, "application/json", asyncResponder);
@@ -567,11 +574,7 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                 System.out.println("DEVICES : " + deviceConnected.toString());
             } else {//if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(tag, "Disconnected from GATT server.");
-                if (deviceConnected.size()>2) deviceConnected.get(0).connectGatt(getBaseContext(),false,gattCallback);
-                else {
-                    paused=false; scanLeDevice(true);
-                }
-                gatt.close();
+                mHandler.sendMessage(Message.obtain(mHandler, 5, gatt));
             }
         }
 
@@ -707,12 +710,12 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
                 Log.d("DEBUG", device.getName() + " : " + getHexString(scanRecord));
                 /** TESTING FOR OPO TODO: REMOVE **/
                 if (device.getName()!=null && device.getName().equals("Cloudcomm")) {
-                    parse(device.getName(), device.getAddress(), rssi, "6F676F2E676C2F6A524D78453000770000");
+                    parse(device.getName(), device.getAddress(), rssi, "676F6F2E676C2F6A524D78453000770000");
                     deviceMap.put(device.getAddress(), device);
                 }
                 /** END: TESTING FOR OPO **/
                 /** TESTING FOR ROBOSMART TODO: REMOVE **/
-                else if (device.getName()!=null && device.getName().contains("SHL ")) parse(device.getName(),device.getAddress(),rssi,"6F676F2E676C2F35475147396B007702");
+                else if (device.getName()!=null && device.getName().contains("SHL ")) parse(device.getName(),device.getAddress(),rssi,"676F6F2E676C2F35475147396B007702");
                 /** END: TESTING FOR ROBOSMART **/
             apiCheck(device, rssi, scanRecord);
             } catch (Exception e) { e.printStackTrace(); }
@@ -725,6 +728,15 @@ public class GatewayService extends Service implements SharedPreferences.OnShare
             for (byte b : buf) sb.append(String.format("%02X", b));
             return sb.toString();
         } else return "";
+    }
+
+    public static String hexToAscii(String hex) {
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < hex.length(); i+=2) {
+            String str = hex.substring(i, i+2);
+            output.append((char)Integer.parseInt(str, 16));
+        }
+        return output.toString();
     }
 
     private String unshortUrl(String shortUrlHex) {
